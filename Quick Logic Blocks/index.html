@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quick Logic Blocks</title>
+  <style>
+    body {
+      margin: 0;
+      background: #191919;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Poppins', sans-serif;
+      color: #fff;
+      overflow: hidden;
+    }
+    canvas {
+      background: radial-gradient(circle at 50% 30%, #1f1f1f, #0f0f0f);
+      box-shadow: 0 0 40px #0f0f0f, inset 0 0 40px #000;
+      border-radius: 20px;
+      display: block;
+    }
+    #startBtn, #retryBtn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 14px 28px;
+      font-size: 20px;
+      background: linear-gradient(135deg, #b35488, #ff3ea5);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(255, 0, 128, 0.4);
+      display: none;
+      transition: all 0.3s ease;
+    }
+    #startBtn:hover, #retryBtn:hover {
+      transform: translate(-50%, -50%) scale(1.05);
+      box-shadow: 0 0 40px rgba(255, 0, 128, 0.6);
+    }
+    #startBtn { display: block; }
+    #score {
+      position: absolute;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 22px;
+      color: #ff6ec7;
+      text-shadow: 0 0 10px #ff3ea5;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="400" height="500"></canvas>
+  <div id="score">Score: 0</div>
+  <button id="startBtn">Start Game</button>
+  <button id="retryBtn">Retry</button>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const startBtn = document.getElementById("startBtn");
+    const retryBtn = document.getElementById("retryBtn");
+    const scoreText = document.getElementById("score");
+
+    let gameStarted = false;
+    let gameOver = false;
+    let score = 0;
+    let speed = 2;
+    let fallingBlock = null;
+    const grid = 5; // 5 columns
+    const blockSize = canvas.width / grid;
+
+    // Glowing colors palette
+    const colors = ["#ff007f", "#00fff0", "#ffd700", "#ff6ec7", "#00ff7f"];
+
+    function createBlock() {
+      const x = Math.floor(Math.random() * grid);
+      return {
+        x: x * blockSize,
+        y: 0,
+        color: colors[Math.floor(Math.random() * colors.length)]
+      };
+    }
+
+    function drawBlock(block) {
+      ctx.shadowColor = block.color;
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = block.color;
+      ctx.fillRect(block.x + 5, block.y + 5, blockSize - 10, blockSize - 10);
+    }
+
+    function drawBaseSlots() {
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < grid; i++) {
+        ctx.strokeRect(i * blockSize, canvas.height - blockSize, blockSize, blockSize);
+      }
+    }
+
+    let targetSlot = Math.floor(Math.random() * grid);
+
+    function drawTarget() {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+      ctx.fillRect(targetSlot * blockSize, canvas.height - blockSize, blockSize, blockSize);
+    }
+
+    function update() {
+      if (!gameStarted || gameOver) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBaseSlots();
+      drawTarget();
+
+      fallingBlock.y += speed;
+      drawBlock(fallingBlock);
+
+      // Collision check
+      if (fallingBlock.y + blockSize >= canvas.height - blockSize) {
+        if (Math.abs(fallingBlock.x / blockSize - targetSlot) < 0.5) {
+          score++;
+          scoreText.textContent = "Score: " + score;
+          speed += 0.2;
+          targetSlot = Math.floor(Math.random() * grid);
+          fallingBlock = createBlock();
+        } else {
+          gameOver = true;
+          retryBtn.style.display = "block";
+        }
+      }
+
+      requestAnimationFrame(update);
+    }
+function startGame() {
+      score = 0;
+      speed = 2;
+      scoreText.textContent = "Score: 0";
+      gameOver = false;
+      gameStarted = true;
+      targetSlot = Math.floor(Math.random() * grid);
+      fallingBlock = createBlock();
+      startBtn.style.display = "none";
+      retryBtn.style.display = "none";
+      update();
+    }
+
+    // Controls
+    document.addEventListener("keydown", e => {
+      if (!fallingBlock) return;
+      if (e.code === "ArrowLeft" && fallingBlock.x > 0)
+        fallingBlock.x -= blockSize;
+      if (e.code === "ArrowRight" && fallingBlock.x < (grid - 1) * blockSize)
+        fallingBlock.x += blockSize;
+    });
+
+    startBtn.addEventListener("click", startGame);
+    retryBtn.addEventListener("click", startGame);
+  </script>
+</body>
+</html>
