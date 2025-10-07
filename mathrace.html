@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Math Race — Dual Mode</title>
+<style>
+:root{
+  --bg:#191919; --panel:#222; --txt:#e8eef3;
+  --p1:#00ffa6; --p2:#ff5675; --accent:#facc15;
+}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+  font-family:Inter,system-ui,Segoe UI,Roboto,Arial;display:flex;align-items:center;justify-content:center}
+.wrap{width:min(96vw,520px);padding:16px;text-align:center}
+h1{margin:0 0 8px;font-size:20px}
+select,button{background:#202020;border:1px solid #2b2b2b;color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer}
+.primary{background:var(--p1);color:#0c1813;border:none;font-weight:700}
+.panel{background:var(--panel);padding:14px;border-radius:14px;
+  box-shadow:0 20px 45px rgba(0,0,0,.55);margin-top:12px}
+.question{font-size:26px;font-weight:800;margin:12px 0;color:var(--accent)}
+input{width:60%;padding:8px;font-size:16px;border-radius:8px;border:none;outline:none;text-align:center;background:#181818;color:#fff}
+.stats{margin-top:10px;font-size:14px;color:#cbd5e1;display:flex;justify-content:space-between}
+.score{font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Math Race — Dual Mode 🧠</h1>
+  <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px">
+    <select id="mode">
+      <option value="bot" selected>You vs Bot</option>
+      <option value="2p">2 Players</option>
+    </select>
+    <button id="start" class="primary">Start</button>
+    <button id="restart">Restart</button>
+  </div>
+  <div id="game" class="panel" style="display:none">
+    <div class="question" id="question">3 + 5 = ?</div>
+    <input type="text" id="answer" placeholder="Type answer..." autocomplete="off" />
+    <div class="stats">
+      <div class="score">P1: <span id="s1">0</span></div>
+      <div class="score">P2: <span id="s2">0</span></div>
+      <div>Time: <span id="time">30</span>s</div>
+    </div>
+  </div>
+  <div id="status" style="margin-top:10px;font-size:14px;color:#a9b2b9;">Click Start to begin</div>
+</div>
+
+<script>
+const qEl=document.getElementById('question'),aEl=document.getElementById('answer');
+const s1El=document.getElementById('s1'),s2El=document.getElementById('s2'),tEl=document.getElementById('time');
+const modeEl=document.getElementById('mode'),statusEl=document.getElementById('status');
+const startBtn=document.getElementById('start'),restartBtn=document.getElementById('restart');
+const game=document.getElementById('game');
+let p1=0,p2=0,time=30,playing=false,timer=null,turn=1,mode='bot',ans=0;
+
+modeEl.onchange=e=>mode=e.target.value;
+startBtn.onclick=()=>startGame();
+restartBtn.onclick=()=>reset();
+
+function reset(){
+  clearInterval(timer);
+  p1=0;p2=0;time=30;playing=false;
+  s1El.textContent=0;s2El.textContent=0;tEl.textContent=30;
+  statusEl.textContent="Click Start to begin";
+  game.style.display='none';
+}
+function startGame(){
+  reset(); game.style.display='block'; playing=true;
+  statusEl.textContent = mode==='bot' ? 'You vs Bot!' : '2 Player Race!';
+  nextQuestion();
+  aEl.focus();
+  timer=setInterval(()=>{
+    time--; tEl.textContent=time;
+    if(time<=0){ clearInterval(timer); playing=false; endGame(); }
+  },1000);
+}
+function randomQ(){
+  const a=Math.floor(Math.random()*10)+1,b=Math.floor(Math.random()*10)+1;
+  const ops=['+','-','×','÷']; const op=ops[Math.floor(Math.random()*4)];
+  let result;
+  switch(op){
+    case '+':result=a+b;break;
+    case '-':result=a-b;break;
+    case '×':result=a*b;break;
+    case '÷':result=Math.floor(a);result=result-result% b;break;
+  }
+  return {text:`${a} ${op} ${b}`,ans:eval(a + (op==='×'?'*':op==='÷'?'/':op) + b)};
+}
+function nextQuestion(){
+  const q=randomQ(); qEl.textContent=q.text+" = ?"; ans=Math.round(q.ans);
+  aEl.value='';
+  if(mode==='bot' && turn===2){ setTimeout(botAnswer,q.ans<20?700:1100); }
+}
+function botAnswer(){
+  if(!playing) return;
+  const chance=Math.random()<0.8;
+  if(chance){ p2++; s2El.textContent=p2; }
+  turn=1; nextQuestion();
+}
+aEl.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){ checkAnswer(); }
+});
+function checkAnswer(){
+  if(!playing) return;
+  const val=Number(aEl.value.trim());
+  if(val===ans){
+    if(turn===1){ p1++; s1El.textContent=p1; }
+    else { p2++; s2El.textContent=p2; }
+    statusEl.textContent=(turn===1?'✅ Correct!':'🤖 Bot correct!');
+  } else {
+    statusEl.textContent='❌ Wrong!';
+  }
+  turn= mode==='2p' ? (turn===1?2:1) : (mode==='bot'?2:1);
+  nextQuestion();
+}
+function endGame(){
+  let msg='';
+  if(p1>p2) msg='🎉 P1 Wins!';
+  else if(p2>p1) msg= mode==='bot' ? '🤖 Bot Wins!' : 'P2 Wins!';
+  else msg='🤝 Draw!';
+  statusEl.textContent=`Game Over — ${msg}  (P1:${p1} / P2:${p2})`;
+}
+</script>
+</body>
+</html>
