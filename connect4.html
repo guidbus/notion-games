@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Connect 4 — Dual Mode</title>
+<style>
+  :root{
+    --bg:#191919; --panel:#222; --txt:#e8eef3;
+    --p1:#ffd84a; /* You / P1 */
+    --p2:#ff5468; /* Bot / P2 */
+  }
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+    font-family:Inter,system-ui,Segoe UI,Roboto,Arial;display:flex;align-items:center;justify-content:center}
+  .wrap{width:min(96vw,520px);padding:16px}
+  .top{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:10px}
+  h1{margin:0;font-size:18px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap}
+  select,button{background:#202020;border:1px solid #2b2b2b;color:#fff;padding:8px 10px;border-radius:10px;cursor:pointer}
+  .board{position:relative;background:var(--panel);padding:10px;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+  canvas{display:block;width:100%;height:auto;border-radius:10px;background:#1a1a1a}
+  .info{margin-top:8px;font-size:13px;color:#bac2c9;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Connect 4 — Dual Mode</h1>
+    <div class="controls">
+      <select id="mode">
+        <option value="bot" selected>You vs Bot</option>
+        <option value="2p">2 Players</option>
+      </select>
+      <select id="starter">
+        <option value="1" selected>Start: You / P1</option>
+        <option value="2">Start: Bot / P2</option>
+      </select>
+      <button id="new">Restart</button>
+    </div>
+  </div>
+  <div class="board"><canvas id="game" width="480" height="420"></canvas></div>
+  <div id="status" class="info">Turn: <b style="color:var(--p1)">You (P1)</b></div>
+</div>
+
+<script>
+/* Compact Connect 4, #191919 bg, Dual Mode (Bot / 2P), alpha-beta AI (depth 4) */
+const cvs=document.getElementById('game'),ctx=cvs.getContext('2d');
+const ROWS=6,COLS=7; const CELL=60, PAD=10; // canvas 480x420 fits nicely
+let grid, turn=1, gameOver=false, mode='bot', starter=1, animDrop=null;
+
+const statusEl=document.getElementById('status');
+document.getElementById('mode').onchange=(e)=>{ mode=e.target.value; reset(); };
+document.getElementById('starter').onchange=(e)=>{ starter=+e.target.value; reset(); };
+document.getElementById('new').onclick=()=>reset();
+
+function reset(){
+  grid=[...Array(ROWS)].map(()=>Array(COLS).fill(0));
+  gameOver=false; turn=starter;
+  animDrop=null; draw();
+  updateStatus();
+  if(mode==='bot' && turn===2) setTimeout(botMove,300);
+}
+
+function updateStatus(msg){
+  if(msg){ statusEl.innerHTML=msg; return; }
+  if(gameOver) return;
+  const who = (turn===1)?'<b style="color:var(--p1)">You (P1)</b>' :
+              (mode==='bot'?'<b style="color:var(--p2)">Bot (P2)</b>':'<b style="color:var(--p2)">P2</b>');
+  statusEl.innerHTML='Turn: '+who;
+}
+
+function drawBoard(){
+  // base plate
+  ctx.fillStyle='#0f0f0f'; ctx.fillRect(0,0,cvs.width,cvs.height);
+  // grid plate with holes
+  ctx.fillStyle='#1f2a44';
+  ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=2;
+  const bw = COLS*CELL, bh = ROWS*CELL;
+  const ox = (cvs.width - bw)/2, oy = (cvs.height - bh)/2;
+  roundRect(ox,oy,bw,bh,14); ctx.fill(); ctx.stroke();
+
+  // holes + pieces
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const cx = ox + c*CELL + CELL/2;
+      const cy = oy + r*CELL + CELL/2;
+      // hole shadow
+      ctx.save();
+      const grad = ctx.createRadialGradient(cx-4,cy-6,4,cx,cy,CELL*0.42);
+      grad.addColorStop(0,'#0b0b0b'); grad.addColorStop(1,'#0f1014');
+      ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(cx,cy,CELL*0.42,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+      // piece if any
+      const v = grid[r][c];
+      if(v!==0) drawPiece(cx,cy, v===1? getCSS('--p1') : getCSS('--p2'));
+    }
+  }
+
+  // animating falling piece
+  if(animDrop){
+    const {col,y,color} = animDrop;
+    const cx = ox + col*CELL + CELL/2;
+    drawPiece(cx, y, color, true);
+  }
+}
+function drawPiece(x,y,color,glow=false){
+  const r=CELL*0.38;
+  const g=ctx.createRadialGradient(x-6,y-8,4,x,y,r*1.1);
+  g.addColorStop(0,'#fff'); g.addColorStop(0.2,color); g.addColorStop(1,color);
+  if(glow){ ctx.shadowColor=color; ctx.shadowBlur=18; }
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+  // rim
+  ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,r*0.94,0,Math.PI*2); ctx.stroke();
+}
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function getCSS(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+function draw(){ ctx.clearRect(0,0,cvs.width,cvs.height); drawBoard(); }
+
+function drop(col, who, withAnim=true){
+  if(gameOver) return false;
+  // find lowest empty row
+  let row = -1;
+  for(let r=ROWS-1;r>=0;r--) if(grid[r][col]===0){ row=r; break; }
+  if(row===-1) return false;
+
+  if(withAnim){
+    const targetY = centerY(row);
+    const color = who===1? getCSS('--p1') : getCSS('--p2');
+    let y = centerY(-1.2); // start above
+    animDrop = {col,y,color};
+    const step=()=>{ if(!animDrop) return;
+      animDrop.y += 16; if(animDrop.y >= targetY){ animDrop=null; grid[row][col]=who; afterMove(row,col,who); draw(); return; }
+      draw(); requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  } else {
+    grid[row][col]=who; afterMove(row,col,who);
+  }
+  return true;
+}
+function centerY(row){ const bh=ROWS*CELL, oy=(cvs.height - bh)/2; return oy + row*CELL + CELL/2; }
+
+function afterMove(row,col,who){
+  const w = checkWin(row,col,who);
+  if(w){ gameOver=true; updateStatus(`<b style="color:${who===1?getCSS('--p1'):getCSS('--p2')}">${who===1?'P1 (You)':'P2'}</b> wins! 🎉`); return; }
+  if(full()){ gameOver=true; updateStatus('🤝 Draw.'); return; }
+  turn = (who===1?2:1);
+  updateStatus();
+  if(mode==='bot' && turn===2 && !gameOver) setTimeout(botMove, 250);
+}
+
+function full(){ return grid.every(row=>row.every(v=>v!==0)); }
+
+function checkWin(r,c,who){
+  const dirs=[[1,0],[0,1],[1,1],[1,-1]];
+  for(const [dx,dy] of dirs){
+    let cnt=1;
+    cnt+=countDir(r,c,dx,dy,who);
+    cnt+=countDir(r,c,-dx,-dy,who);
+    if(cnt>=4) return true;
+  }
+  return false;
+}
+function countDir(r,c,dx,dy,who){
+  let i=1, cnt=0;
+  while(true){
+    const nr=r+dy*i, nc=c+dx*i;
+    if(nr<0||nr>=ROWS||nc<0||nc>=COLS) break;
+    if(grid[nr][nc]!==who) break;
+    cnt++; i++;
+  }
+  return cnt;
+}
+
+// --- Input
+cvs.addEventListener('click', (e)=>{
+  if(gameOver) return;
+  if(mode==='bot' && turn===2) return; // wait bot
+  const col = pickColFromEvent(e);
+  if(col<0 || col>=COLS) return;
+  drop(col, turn, true);
+});
+function pickColFromEvent(e){
+  const rect=cvs.getBoundingClientRect();
+  const x=e.clientX-rect.left;
+  const bw=COLS*CELL, ox=(cvs.width - bw)/2;
+  return Math.floor((x-ox)/CELL);
+}
+
+// --- BOT (alpha-beta, depth 4), P2 is maximizing
+function botMove(){
+  const best = findBestMove(grid, 4); // depth
+  if(best.col!==null) drop(best.col, 2, true);
+}
+
+function findBestMove(state, depth){
+  let best={score:-Infinity,col:null};
+  for(const col of validMoves(state)){
+    const r = nextRow(state,col); if(r===-1) continue;
+    const tmp = clone(state); tmp[r][col]=2;
+    const sc = minimax(tmp, depth-1, -Infinity, Infinity, false);
+    if(sc>best.score){ best={score:sc,col}; }
+  }
+  return best;
+}
+function minimax(state, depth, alpha, beta, maximizing){
+  const term = terminalScore(state);
+  if(depth===0 || term!==null) return term ?? heuristic(state);
+  if(maximizing){
+    let value=-Infinity;
+    for(const col of validMoves(state)){
+      const r=nextRow(state,col); if(r===-1) continue;
+      const tmp=clone(state); tmp[r][col]=2;
+      value=Math.max(value, minimax(tmp, depth-1, alpha, beta, false));
+      alpha=Math.max(alpha,value); if(alpha>=beta) break;
+    }
+    return value;
+  }else{
+    let value=Infinity;
+    for(const col of validMoves(state)){
+      const r=nextRow(state,col); if(r===-1) continue;
+      const tmp=clone(state); tmp[r][col]=1;
+      value=Math.min(value, minimax(tmp, depth-1, alpha, beta, true));
+      beta=Math.min(beta,value); if(alpha>=beta) break;
+    }
+    return value;
+  }
+}
+function validMoves(s){ const res=[]; for(let c=0;c<COLS;c++) if(s[0][c]===0) res.push(c); return res; }
+function nextRow(s,c){ for(let r=ROWS-1;r>=0;r--) if(s[r][c]===0) return r; return -1; }
+function clone(s){ return s.map(r=>r.slice()); }
+
+function terminalScore(s){
+  // check any win
+  const chk=(who)=>hasWin(s,who);
+  if(chk(2)) return 1e4;
+  if(chk(1)) return -1e4;
+  if(s.every(r=>r.every(v=>v!==0))) return 0;
+  return null;
+}
+function hasWin(s,who){
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    if(s[r][c]!==who) continue;
+    if(line(s,r,c,1,0,who)>=4) return true;
+    if(line(s,r,c,0,1,who)>=4) return true;
+    if(line(s,r,c,1,1,who)>=4) return true;
+    if(line(s,r,c,1,-1,who)>=4) return true;
+  }
+  return false;
+}
+function line(s,r,c,dx,dy,who){
+  let cnt=0; for(let i=0;i<4;i++){ const nr=r+dy*i,nc=c+dx*i;
+    if(nr<0||nr>=ROWS||nc<0||nc>=COLS) return 0;
+    if(s[nr][nc]!==who) return 0; cnt++; } return cnt;
+}
+function heuristic(s){
+  // score center + open threes/twos
+  let score=0;
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    if(s[r][c]===2) score += 2 + (c===Math.floor(COLS/2)?1:0);
+    if(s[r][c]===1) score -= 2 + (c===Math.floor(COLS/2)?1:0);
+  }
+  score += countWindows(s,2,3)*50 + countWindows(s,2,2)*8;
+  score -= countWindows(s,1,3)*60 + countWindows(s,1,2)*10;
+  return score;
+}
+function countWindows(s,who,len){
+  let cnt=0;
+  const dirs=[[1,0],[0,1],[1,1],[1,-1]];
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    for(const [dx,dy] of dirs){
+      let w=0, empty=0;
+      for(let i=0;i<4;i++){
+        const nr=r+dy*i,nc=c+dx*i;
+        if(nr<0||nr>=ROWS||nc<0||nc>=COLS){ w=-1; break; }
+        const v=s[nr][nc];
+        if(v===who) w++; else if(v===0) empty++; else { w=-1; break; }
+      }
+      if(w===len && empty>0) cnt++;
+    }
+  }
+  return cnt;
+}
+
+// init
+reset();
+</script>
+</body>
+</html>
