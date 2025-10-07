@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Astro Runner — Premium Neon</title>
+<style>
+  :root{
+    --bg:#191919; --panel:#222; --txt:#e8eef3;
+    --neon1:#00eaff; --neon2:#a78bfa; --coin:#ffd166; --danger:#ff5b7a; --good:#00ffa6;
+  }
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+    font-family:Inter,system-ui,Segoe UI,Roboto,Arial;display:flex;align-items:center;justify-content:center}
+  .wrap{width:min(96vw,520px);padding:16px;text-align:center}
+  h1{margin:0 0 8px;font-size:18px;letter-spacing:.2px}
+  .panel{background:var(--panel);border-radius:14px;box-shadow:0 18px 45px rgba(0,0,0,.55);padding:10px}
+  canvas{display:block;width:100%;height:auto;border-radius:12px;background:#0b0b0f}
+  .bar{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:13px;color:#cbd5e1}
+  .btn{background:#202020;border:1px solid #2a2a2a;color:#fff;padding:6px 12px;border-radius:10px;cursor:pointer}
+  .btn.primary{background:var(--good);border:none;color:#062017;font-weight:800}
+  .hint{margin-top:6px;font-size:12px;color:#94a3b8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Astro Runner — Premium Neon 🚀</h1>
+
+  <div class="panel">
+    <canvas id="game" width="480" height="360" aria-label="Astro Runner"></canvas>
+    <div class="bar">
+      <div>Score: <b id="score">0</b> • Best: <b id="best">0</b></div>
+      <div>
+        <button id="start" class="btn primary">Start</button>
+        <button id="pause" class="btn">Pause</button>
+        <button id="restart" class="btn">Restart</button>
+      </div>
+    </div>
+  </div>
+  <div class="hint">Controls: <b>Space / Tap</b> to jump (double-jump enabled). Avoid spikes, collect coins.</div>
+</div>
+
+<script>
+/* ASTRO RUNNER — compact premium neon runner */
+const cvs=document.getElementById('game'), ctx=cvs.getContext('2d');
+const W=cvs.width, H=cvs.height;
+
+const ui={
+  score:document.getElementById('score'),
+  best:document.getElementById('best'),
+  start:document.getElementById('start'),
+  pause:document.getElementById('pause'),
+  restart:document.getElementById('restart')
+};
+let best = +(localStorage.getItem('astro_best')||0); ui.best.textContent=best;
+
+let playing=false, paused=false, t=0, speed=3.2, score=0;
+const GRAV=0.55, JUMP=-8.8, DJUMP=-7.2, GROUND=H-54;
+
+const player={
+  x:72, y:GROUND, vx:0, vy:0, w:26, h:26, onGround:true, canDouble:false, trail:[]
+};
+
+const stars=[], coins=[], spikes=[], particles=[];
+
+// --- Helpers
+function rand(a,b){ return Math.random()*(b-a)+a; }
+function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
+function neonRect(x,y,w,h,color,glow=12){
+  ctx.shadowBlur=glow; ctx.shadowColor=color; ctx.strokeStyle=color; ctx.lineWidth=2;
+  ctx.strokeRect(x+0.5,y+0.5,w-1,h-1); ctx.shadowBlur=0;
+}
+function addParticles(x,y,color,count=8){
+  for(let i=0;i<count;i++){
+    particles.push({x,y, vx:rand(-1.5,1.5), vy:rand(-2.5,-0.5), life:rand(18,28), color});
+  }
+}
+function drawParticles(){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx; p.y+=p.vy; p.vy+=0.08; p.life--;
+    ctx.fillStyle=p.color; ctx.globalAlpha=Math.max(0,p.life/28);
+    ctx.fillRect(p.x,p.y,2,2); ctx.globalAlpha=1;
+    if(p.life<=0) particles.splice(i,1);
+  }
+}
+
+// --- Parallax stars
+for(let i=0;i<80;i++){
+  stars.push({x:Math.random()*W, y:Math.random()*H, r:Math.random()*1.6+0.4, s:Math.random()*0.6+0.2});
+}
+function drawBackground(){
+  // gradient sky
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#0a0a12'); g.addColorStop(1,'#0f0f18');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  // stars
+  stars.forEach(st=>{
+    st.x-=st.s*0.6; if(st.x<-2){st.x=W+2; st.y=Math.random()*H;}
+    ctx.fillStyle='rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.arc(st.x,st.y,st.r,0,Math.PI*2); ctx.fill();
+  });
+
+  // ground neon line
+  ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,GROUND+28,W,H);
+  ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.beginPath();
+  ctx.moveTo(0,GROUND+0.5); ctx.lineTo(W,GROUND+0.5); ctx.stroke();
+}
+
+// --- Spawner
+let coinTimer=0, spikeTimer=0;
+function spawn(){
+  coinTimer--; spikeTimer--;
+  if(coinTimer<=0){
+    const y=GROUND- rand(30,120);
+    coins.push({x:W+20,y, r:6});
+    coinTimer = 45 + (Math.random()*30);
+  }
+  if(spikeTimer<=0){
+    const tall = Math.random()<0.3;
+    if(tall){
+      // moving vertical laser wall (neon rectangle)
+      spikes.push({x:W+10,y:GROUND-48,w:18,h:48, type:'bar', vy: Math.random()<0.5?-1.2:1.2, top:GROUND-120, bottom:GROUND-24});
+    }else{
+      // floor spike
+      spikes.push({x:W+10,y:GROUND-16,w:18,h:16, type:'spike'});
+    }
+    spikeTimer = 55 + (Math.random()*35);
+  }
+}
+
+// --- Input
+function jump(){
+  if(!playing || paused) return;
+  if(player.onGround){
+    player.vy = JUMP; player.onGround=false; player.canDouble=true;
+    addParticles(player.x+player.w/2, player.y+player.h, 'rgba(167,139,250,0.9)', 14);
+  }else if(player.canDouble){
+    player.vy = DJUMP; player.canDouble=false;
+    addParticles(player.x+player.w/2, player.y+player.h, 'rgba(0,234,255,0.9)', 12);
+  }
+}
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'){ e.preventDefault(); jump(); }
+  if(e.key==='p'||e.key==='P'){ togglePause(); }
+});
+cvs.addEventListener('touchstart', e=>{ e.preventDefault(); jump(); }, {passive:false});
+
+// --- UI
+ui.start.onclick=()=>{ if(!playing){ startGame(); } };
+ui.restart.onclick=()=>{ startGame(); };
+ui.pause.onclick=()=>togglePause();
+
+function togglePause(){ if(!playing) return; paused=!paused; ui.pause.textContent=paused?'Resume':'Pause'; if(!paused) loop(); }
+
+function startGame(){
+  playing=true; paused=false; ui.pause.textContent='Pause';
+  coins.length=0; spikes.length=0; particles.length=0; score=0; t=0; speed=3.2;
+  player.x=72; player.y=GROUND; player.vx=0; player.vy=0; player.onGround=true; player.canDouble=false; player.trail.length=0;
+  loop();
+}
+
+function updatePlayer(){
+  player.vy += GRAV;
+  player.y += player.vy;
+  if(player.y >= GROUND){ player.y=GROUND; player.vy=0; player.onGround=true; }
+
+  // trail
+  player.trail.push({x:player.x+player.w/2, y:player.y+player.h/2, life:22});
+  if(player.trail.length>40) player.trail.shift();
+}
+
+function drawPlayer(){
+  // trail glow
+  for(let i=0;i<player.trail.length;i++){
+    const tr=player.trail[i]; tr.life--;
+    const alpha=Math.max(0,tr.life/22);
+    ctx.fillStyle=`rgba(0,234,255,${0.18*alpha})`;
+    ctx.beginPath(); ctx.arc(tr.x,tr.y,10*(1-alpha)+2,0,Math.PI*2); ctx.fill();
+    if(tr.life<=0){ player.trail.splice(i,1); i--; }
+  }
+  // body
+  ctx.fillStyle='rgba(0,234,255,1)';
+  ctx.shadowBlur=12; ctx.shadowColor='rgba(0,234,255,0.9)';
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+  ctx.shadowBlur=0;
+  neonRect(player.x, player.y, player.w, player.h, '#a78bfa', 10);
+}
+
+function collide(ax,ay,aw,ah,bx,by,bw,bh){ return ax<bx+bw && ax+aw>bx && ay<by+bh && ay+ah>by; }
+
+function updateEntities(){
+  // coins
+  for(let i=coins.length-1;i>=0;i--){
+    const c=coins[i];
+    c.x-=speed;
+    // draw coin
+    const g=ctx.createRadialGradient(c.x-2,c.y-3,1,c.x,c.y,8);
+    g.addColorStop(0,'#fff'); g.addColorStop(0.25,'#ffe39a'); g.addColorStop(1,'#ffd166');
+    ctx.fillStyle=g; ctx.shadowBlur=10; ctx.shadowColor='#ffd166';
+    ctx.beginPath(); ctx.arc(c.x,c.y,7,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+    if(collide(player.x,player.y,player.w,player.h, c.x-6,c.y-6,12,12)){
+      addParticles(c.x,c.y,'rgba(255,209,102,0.9)',16);
+      coins.splice(i,1); score+=10;
+    }else if(c.x<-12){ coins.splice(i,1); }
+  }
+
+  // spikes
+  for(let i=spikes.length-1;i>=0;i--){
+    const s=spikes[i];
+    s.x-=speed*1.05;
+
+    if(s.type==='spike'){
+      // triangle spike
+      ctx.fillStyle='rgba(255,91,122,0.95)'; ctx.shadowBlur=10; ctx.shadowColor='#ff5b7a';
+      ctx.beginPath(); ctx.moveTo(s.x, s.y+s.h); ctx.lineTo(s.x+s.w/2, s.y); ctx.lineTo(s.x+s.w, s.y+s.h); ctx.closePath(); ctx.fill();
+      ctx.shadowBlur=0;
+      if(collide(player.x,player.y,player.w,player.h, s.x, s.y, s.w, s.h)) die();
+    }else{
+      // bar obstacle moving up/down
+      s.y += s.vy;
+      if(s.y < s.top || s.y > s.bottom) s.vy*=-1;
+      ctx.fillStyle='rgba(255,91,122,0.9)'; ctx.shadowBlur=12; ctx.shadowColor='#ff5b7a';
+      ctx.fillRect(s.x, s.y, s.w, s.h); ctx.shadowBlur=0;
+      if(collide(player.x,player.y,player.w,player.h, s.x, s.y, s.w, s.h)) die();
+    }
+
+    if(s.x<-24) spikes.splice(i,1);
+  }
+}
+
+function die(){
+  addParticles(player.x+player.w/2, player.y+player.h/2, 'rgba(255,91,122,0.95)', 24);
+  playing=false;
+  best=Math.max(best, score); localStorage.setItem('astro_best',best);
+  ui.best.textContent=best;
+}
+
+function drawHUD(){
+  ui.score.textContent = Math.floor(score);
+}
+
+function loop(){
+  if(!playing || paused) { drawBackground(); drawPlayer(); drawParticles(); drawHUD(); return; }
+  t+=1;
+  if(t%300===0) speed = Math.min(6.2, speed+0.35); // difficulty up
+  score += 0.15 * speed;
+
+  drawBackground();
+  spawn();
+  updatePlayer();
+  updateEntities();
+  drawPlayer();
+  drawParticles();
+  drawHUD();
+
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
