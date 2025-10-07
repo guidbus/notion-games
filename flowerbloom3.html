@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Flower Bloom Puzzle 🌸</title>
+<style>
+:root{
+  --bg:#191919; --panel:#222; --txt:#e8eef3; --accent:#ff99c8;
+}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+  font-family:Poppins,Inter,system-ui,sans-serif;
+  display:flex;align-items:center;justify-content:center;}
+.wrap{width:min(94vw,460px);text-align:center;padding:16px}
+h1{margin:0 0 8px;font-size:20px;color:var(--accent);}
+.board{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:8px;
+  background:var(--panel);padding:12px;border-radius:16px;
+  box-shadow:0 18px 40px rgba(0,0,0,.55);margin-top:10px;
+}
+.cell{
+  width:100%;aspect-ratio:1/1;border-radius:12px;
+  background:#181818;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:background .3s,transform .3s;
+  font-size:30px;user-select:none;
+}
+.cell.bloom{background:#ff99c8;transform:scale(1.05);}
+button{
+  background:var(--accent);border:none;color:#191919;font-weight:700;
+  padding:8px 14px;border-radius:10px;cursor:pointer;margin-top:10px;
+}
+.info{margin-top:8px;color:#bbb;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Flower Bloom Puzzle 🌸</h1>
+  <div id="board" class="board"></div>
+  <button id="restart">Restart</button>
+  <div class="info" id="status">Tap flowers to bloom all 🌷</div>
+</div>
+
+<script>
+const size=5;
+const board=document.getElementById('board'),statusEl=document.getElementById('status');
+let grid=[];
+
+function start(){
+  board.innerHTML='';grid=[];
+  for(let r=0;r<size;r++){
+    grid[r]=[];
+    for(let c=0;c<size;c++){
+      const div=document.createElement('div');
+      div.className='cell';
+      div.onclick=()=>toggle(r,c);
+      div.textContent='🌸';
+      board.appendChild(div);
+      grid[r][c]=div;
+    }
+  }
+  // random few blooms
+  for(let i=0;i<7;i++) randomToggle();
+}
+function toggle(r,c){
+  const dirs=[[0,0],[1,0],[-1,0],[0,1],[0,-1]];
+  for(const [dr,dc] of dirs){
+    const nr=r+dr,nc=c+dc;
+    if(nr>=0&&nr<size&&nc>=0&&nc<size){
+      grid[nr][nc].classList.toggle('bloom');
+    }
+  }
+  checkWin();
+}
+function randomToggle(){
+  const r=Math.floor(Math.random()*size);
+  const c=Math.floor(Math.random()*size);
+  toggle(r,c);
+}
+function checkWin(){
+  const all=grid.flat().every(cell=>cell.classList.contains('bloom'));
+  if(all){
+    statusEl.textContent='🎉 All flowers bloomed! 🌸';
+    setTimeout(()=>start(),1500);
+  }
+}
+document.getElementById('restart').onclick=start;
+start();
+</script>
+</body>
+</html>
