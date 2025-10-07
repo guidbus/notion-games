@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sliding Puzzle — Dual Mode</title>
+<style>
+:root{
+  --bg:#191919; --panel:#222; --txt:#e8eef3; --tile:#262626;
+  --accent:#00ffa6; --p2:#ff5675;
+}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+  font-family:Inter,system-ui,Segoe UI,Roboto,Arial;display:flex;align-items:center;justify-content:center}
+.wrap{width:min(95vw,500px);padding:16px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+h1{margin:0;font-size:18px}
+select,button{background:#202020;border:1px solid #2b2b2b;color:#fff;padding:8px 10px;border-radius:10px;cursor:pointer}
+.primary{background:var(--accent);border:none;color:#07120e;font-weight:700}
+.board{display:grid;gap:6px;background:var(--panel);padding:8px;border-radius:12px;
+  box-shadow:0 18px 40px rgba(0,0,0,.5)}
+.tile{background:var(--tile);border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:clamp(28px,7vw,48px);font-weight:900;cursor:pointer;user-select:none;
+  transition:all .2s ease}
+.tile.p1{background:var(--accent);color:#0b1710}
+.tile.p2{background:var(--p2);color:#fff}
+.info{margin-top:10px;font-size:13px;color:#cbd5e1;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Sliding Puzzle — Dual Mode</h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <select id="mode">
+        <option value="solo" selected>You vs Bot</option>
+        <option value="2p">2 Players</option>
+      </select>
+      <button id="new" class="primary">New Game</button>
+    </div>
+  </div>
+  <div id="board" class="board"></div>
+  <div id="status" class="info">Mode: You vs Bot — Arrange numbers 1 → 15!</div>
+</div>
+
+<script>
+/* Sliding Puzzle — compact, dark, dual mode */
+const board=document.getElementById('board'),statusEl=document.getElementById('status');
+const size=4; // 4x4
+let grid=[],empty={r:3,c:3},moves=0,mode='solo',gameOver=false;
+
+document.getElementById('mode').onchange=e=>{mode=e.target.value;newGame();};
+document.getElementById('new').onclick=()=>newGame();
+
+function newGame(){
+  board.style.gridTemplateColumns=`repeat(${size},1fr)`;
+  grid=[]; moves=0; gameOver=false;
+  let nums=[...Array(size*size-1).keys()].map(x=>x+1); shuffle(nums);
+  nums.push(null);
+  for(let r=0;r<size;r++){
+    grid[r]=[];
+    for(let c=0;c<size;c++){
+      const val=nums[r*size+c];
+      grid[r][c]=val;
+      const div=document.createElement('div');
+      div.className='tile';
+      if(val!==null) div.textContent=val; else div.style.visibility='hidden';
+      div.addEventListener('click',()=>tileClick(r,c));
+      board.appendChild(div);
+    }
+  }
+  empty={r:size-1,c:size-1};
+  updateStatus();
+  if(mode==='solo') setTimeout(botHint,2000);
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
+function tileClick(r,c){
+  if(gameOver) return;
+  const dr=Math.abs(r-empty.r),dc=Math.abs(c-empty.c);
+  if(dr+dc===1){ swap(r,c,empty.r,empty.c); draw(); checkWin(); if(mode==='solo') setTimeout(botHint,600); }
+}
+function swap(r1,c1,r2,c2){ [grid[r1][c1],grid[r2][c2]]=[grid[r2][c2],grid[r1][c1]]; empty={r:r1,c:c1}; }
+function draw(){
+  const tiles=[...board.children];
+  for(let r=0;r<size;r++)for(let c=0;c<size;c++){
+    const idx=r*size+c,el=tiles[idx];
+    const v=grid[r][c];
+    if(v===null){el.style.visibility='hidden';el.textContent='';}
+    else {el.style.visibility='visible';el.textContent=v;}
+  }
+}
+function checkWin(){
+  let k=1;
+  for(let r=0;r<size;r++)for(let c=0;c<size;c++){
+    if(r===size-1&&c===size-1) continue;
+    if(grid[r][c]!==k++) return;
+  }
+  gameOver=true;
+  statusEl.textContent='🎉 Completed! Well done.';
+}
+function updateStatus(){
+  if(mode==='solo') statusEl.textContent='Mode: You vs Bot — Try faster!';
+  else statusEl.textContent='Mode: 2 Players — Take turns swapping tiles.';
+  draw();
+}
+function botHint(){
+  if(mode!=='solo'||gameOver) return;
+  const moves=adjacentMoves();
+  const choice=moves[Math.floor(Math.random()*moves.length)];
+  if(choice){swap(choice.r,choice.c,empty.r,empty.c);draw();}
+}
+function adjacentMoves(){
+  const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+  const arr=[];
+  for(const [dy,dx] of dirs){
+    const nr=empty.r+dy,nc=empty.c+dx;
+    if(nr>=0&&nr<size&&nc>=0&&nc<size&&grid[nr][nc]!==null) arr.push({r:nr,c:nc});
+  }
+  return arr;
+}
+
+newGame();
+</script>
+</body>
+</html>
