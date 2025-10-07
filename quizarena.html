@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quiz Arena — Dual Mode</title>
+<style>
+:root{
+  --bg:#191919; --panel:#222; --txt:#e8eef3;
+  --p1:#00ffa6; --p2:#ff5472; --accent:#facc15;
+}
+html,body{
+  margin:0;height:100%;
+  background:var(--bg);color:var(--txt);
+  font-family:Inter,system-ui,Segoe UI,Roboto,Arial;
+  display:flex;align-items:center;justify-content:center;
+}
+.wrap{width:min(96vw,520px);padding:16px;text-align:center}
+h1{margin:0;font-size:20px}
+button,select{
+  background:#202020;border:1px solid #2b2b2b;color:#fff;
+  padding:8px 12px;border-radius:10px;cursor:pointer;
+}
+.primary{background:var(--p1);border:none;color:#0b1411;font-weight:700}
+.card{
+  background:var(--panel);padding:16px;border-radius:14px;
+  margin-top:14px;box-shadow:0 20px 45px rgba(0,0,0,.55)
+}
+.q{font-weight:700;font-size:17px;margin-bottom:10px;color:var(--accent)}
+.opt{display:block;margin:6px 0;padding:10px;border-radius:10px;
+  background:#181818;cursor:pointer;transition:.15s}
+.opt:hover{background:#2c2c2c}
+.opt.correct{background:var(--p1);color:#04140d;font-weight:800}
+.opt.wrong{background:var(--p2)}
+.stats{margin-top:10px;font-size:13px;color:#cbd5e1;display:flex;justify-content:space-between}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Quiz Arena — Dual Mode 💡</h1>
+  <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px">
+    <select id="mode">
+      <option value="bot" selected>You vs Bot</option>
+      <option value="2p">2 Players</option>
+    </select>
+    <button id="start" class="primary">Start</button>
+    <button id="restart">Restart</button>
+  </div>
+
+  <div id="quiz" class="card" style="display:none">
+    <div class="q" id="question">Question?</div>
+    <div id="options"></div>
+    <div class="stats">
+      <div>P1: <span id="s1">0</span></div>
+      <div>P2/Bot: <span id="s2">0</span></div>
+      <div>Q: <span id="num">1</span>/10</div>
+    </div>
+  </div>
+
+  <div id="status" style="margin-top:10px;font-size:14px;color:#b9c1c9;">Click Start to begin quiz</div>
+</div>
+
+<script>
+const qEl=document.getElementById('question'),optBox=document.getElementById('options');
+const s1El=document.getElementById('s1'),s2El=document.getElementById('s2'),numEl=document.getElementById('num'),statusEl=document.getElementById('status');
+const quiz=document.getElementById('quiz'),modeEl=document.getElementById('mode');
+let mode='bot',turn=1,p1=0,p2=0,qIndex=0,questions=[],playing=false;
+
+const data=[
+  {q:"What is the capital of Japan?",a:["Kyoto","Tokyo","Seoul","Beijing"],c:1},
+  {q:"Which planet is known as the Red Planet?",a:["Mars","Venus","Jupiter","Mercury"],c:0},
+  {q:"Who painted the Mona Lisa?",a:["Picasso","Leonardo da Vinci","Van Gogh","Rembrandt"],c:1},
+  {q:"Speed of light is approximately?",a:["3x10⁸ m/s","3x10⁶ m/s","1x10⁸ m/s","3x10⁵ m/s"],c:0},
+  {q:"Which gas do plants absorb?",a:["Oxygen","Nitrogen","Carbon Dioxide","Helium"],c:2},
+  {q:"Who discovered gravity?",a:["Einstein","Newton","Galileo","Tesla"],c:1},
+  {q:"Which ocean is largest?",a:["Atlantic","Indian","Pacific","Arctic"],c:2},
+  {q:"Which element has symbol 'O'?",a:["Oxygen","Gold","Osmium","Oxide"],c:0},
+  {q:"What is H₂O?",a:["Hydrogen","Oxygen","Water","Helium"],c:2},
+  {q:"How many continents on Earth?",a:["5","6","7","8"],c:2}
+];
+
+modeEl.onchange=e=>mode=e.target.value;
+document.getElementById('start').onclick=()=>startGame();
+document.getElementById('restart').onclick=()=>reset();
+
+function reset(){
+  quiz.style.display='none'; statusEl.textContent='Click Start to begin quiz';
+  p1=0;p2=0;qIndex=0;turn=1;playing=false;
+  s1El.textContent=0;s2El.textContent=0;numEl.textContent=1;
+}
+function startGame(){
+  reset(); quiz.style.display='block'; playing=true;
+  questions=[...data].sort(()=>Math.random()-0.5);
+  showQ();
+}
+function showQ(){
+  if(qIndex>=questions.length){ endGame(); return; }
+  const q=questions[qIndex];
+  qEl.textContent=q.q;
+  optBox.innerHTML='';
+  q.a.forEach((opt,i)=>{
+    const div=document.createElement('div');
+    div.className='opt'; div.textContent=opt;
+    div.onclick=()=>check(i);
+    optBox.appendChild(div);
+  });
+  numEl.textContent=qIndex+1;
+  statusEl.textContent=`Turn: ${turn===1?'P1':'P2/Bot'}`;
+  if(mode==='bot' && turn===2) setTimeout(botAns,1000);
+}
+function check(i){
+  if(!playing) return;
+  const q=questions[qIndex];
+  const opts=[...document.querySelectorAll('.opt')];
+  opts.forEach(b=>b.onclick=null);
+  if(i===q.c){
+    opts[i].classList.add('correct');
+    if(turn===1) p1++; else p2++;
+  } else {
+    opts[i].classList.add('wrong');
+    opts[q.c].classList.add('correct');
+  }
+  s1El.textContent=p1; s2El.textContent=p2;
+  setTimeout(()=>{ qIndex++; turn = mode==='2p' ? (turn===1?2:1) : (mode==='bot'?2:1); showQ(); },900);
+}
+function botAns(){
+  if(!playing) return;
+  const q=questions[qIndex];
+  const chance=Math.random()<0.7;
+  const i=chance?q.c:Math.floor(Math.random()*q.a.length);
+  check(i);
+}
+function endGame(){
+  playing=false;
+  let msg='';
+  if(p1>p2) msg='🎉 P1 Wins!';
+  else if(p2>p1) msg=mode==='bot'?'🤖 Bot Wins!':'P2 Wins!';
+  else msg='🤝 Draw!';
+  statusEl.textContent=`Game Over — ${msg}  (P1:${p1} / P2:${p2})`;
+}
+</script>
+</body>
+</html>
