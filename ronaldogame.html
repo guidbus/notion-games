@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ronaldo Stadium Run</title>
+  <style>
+    body {
+      margin: 0;
+      background: #191919;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    canvas {
+      background: #191919;
+      display: block;
+      box-shadow: inset 50px 0 50px -20px #191919,
+                  inset -50px 0 50px -20px #191919;
+    }
+    #startBtn, #retryBtn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 12px 24px;
+      font-size: 20px;
+      font-weight: bold;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: none;
+    }
+    #startBtn { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="900" height="450"></canvas>
+  <button id="startBtn">Start Game</button>
+  <button id="retryBtn">Retry</button>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const startBtn = document.getElementById("startBtn");
+    const retryBtn = document.getElementById("retryBtn");
+
+    const groundY = 360;
+
+    let player = {
+      x: 120, y: groundY - 100, w: 70, h: 100,
+      dy: 0, gravity: 0.7, jumpPower: -18,
+      onGround: true, jumping: false
+    };
+
+    // ⚽ Ronaldo images
+    const runImg = new Image();
+    runImg.src = "https://i.postimg.cc/65Pqg52R/146410a5-d2b6-400f-b95e-bb7be8c206ed-removalai-preview1.png"; // Replace with Ronaldo running
+    const jumpImg = new Image();
+    jumpImg.src = "https://i.postimg.cc/3J0YyjNQ/ff10d6a3-36e7-4967-9c94-3e8dc39fd955-removalai-preview2.png"; // Replace with Ronaldo jumping
+
+    // ⚽ Football
+    const ballImg = new Image();
+    ballImg.src = "https://i.postimg.cc/D0gj0MGB/b78fd0b3-9034-4aaa-8138-4c1a1e39ce10-removalai-preview.png";
+    let ballAngle = 0;
+
+    // 🏟️ Stadium + Ground background
+    const bgImg = new Image();
+    bgImg.src = "https://i.postimg.cc/q7gmRqbh/Untitled-design-74.png"; // Replace with stadium image
+    let bgX = 0;
+
+    // 🧱 Obstacles
+    let obstacles = [];
+    const obsImgs = [
+      "https://i.postimg.cc/1tLn6mGD/e585d377-cd8d-4148-8e6f-c9d036dc9baa-removalai-preview.png",
+      "https://i.postimg.cc/xdZX3nrj/e827bd33-d312-4995-bb84-054930a59df0-removalai-preview.png"
+    ];
+    const loadedObs = [];
+    obsImgs.forEach(src => {
+      let img = new Image();
+      img.src = src;
+      loadedObs.push(img);
+    });
+
+    let score = 0, gameOver = false, gameStarted = false;
+    let speed = 6;
+
+    // 🎨 Background
+    function drawBackground() {
+      if (bgImg.complete) {
+        ctx.drawImage(bgImg, -bgX, 0, canvas.width * 2, canvas.height);
+        bgX += 0.5;
+        if (bgX > canvas.width) bgX = 0;
+      } else {
+        ctx.fillStyle = "#191919";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    // 🏃 Player + Ball
+    function drawPlayer() {
+      const img = player.jumping ? jumpImg : runImg;
+      ctx.drawImage(img, player.x, player.y, player.w, player.h);
+
+      // football rotating near Ronaldo
+      ctx.save();
+      ctx.translate(player.x + player.w + 20, player.y + player.h - 20);
+      ctx.rotate(ballAngle * Math.PI / 180);
+      ctx.drawImage(ballImg, -20, -20, 40, 40);
+      ctx.restore();
+      ballAngle += 10;
+    }
+
+    // 🧱 Obstacles
+    function drawObstacles() {
+      obstacles.forEach(obs => {
+        const img = loadedObs[obs.type];
+        ctx.drawImage(img, obs.x, obs.y, obs.w, obs.h);
+      });
+    }
+
+    // ⚙️ Update
+    function update() {
+      if (!gameStarted || gameOver) return;
+
+      player.dy += player.gravity;
+      player.y += player.dy;
+      if (player.y + player.h >= groundY) {
+        player.y = groundY - player.h;
+        player.dy = 0;
+        player.onGround = true;
+        player.jumping = false;
+      }
+
+      obstacles.forEach(obs => obs.x -= speed);
+      obstacles = obstacles.filter(obs => obs.x + obs.w > 0);
+
+      if (score % 100 === 0) {
+        let type = Math.floor(Math.random() * loadedObs.length);
+        obstacles.push({ x: canvas.width, y: groundY - 50, w: 50, h: 50, type });
+      }
+// collision
+      obstacles.forEach(obs => {
+        if (player.x < obs.x + obs.w &&
+            player.x + player.w > obs.x &&
+            player.y < obs.y + obs.h &&
+            player.y + player.h > obs.y) {
+          gameOver = true;
+          retryBtn.style.display = "block";
+        }
+      });
+
+      score++;
+      if (score % 500 === 0) speed += 0.5;
+    }
+
+    // 🎮 Draw everything
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBackground();
+      drawPlayer();
+      drawObstacles();
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "20px Arial";
+      ctx.fillText("Score: " + score, 20, 30);
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+    loop();
+
+    // Controls
+    function jump() {
+      if (player.onGround && !gameOver && gameStarted) {
+        player.dy = player.jumpPower;
+        player.onGround = false;
+        player.jumping = true;
+      }
+    }
+    document.addEventListener("keydown", e => {
+      if (e.code === "Space" || e.code === "ArrowUp") jump();
+    });
+    document.addEventListener("click", jump);
+
+    // Start
+    startBtn.addEventListener("click", () => {
+      gameStarted = true;
+      score = 0;
+      obstacles = [];
+      speed = 6;
+      player.y = groundY - player.h;
+      startBtn.style.display = "none";
+    });
+
+    // Retry
+    retryBtn.addEventListener("click", () => {
+      gameOver = false;
+      score = 0;
+      obstacles = [];
+      speed = 6;
+      player.y = groundY - player.h;
+      player.dy = 0;
+      retryBtn.style.display = "none";
+      gameStarted = true;
+    });
+  </script>
+</body>
+</html>
