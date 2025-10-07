@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Word Guess — Dual Mode</title>
+<style>
+:root{
+  --bg:#191919; --panel:#222; --txt:#e8eef3;
+  --p1:#00ffa6; --p2:#ff5675; --accent:#facc15;
+}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+  font-family:Inter,system-ui,Segoe UI,Roboto,Arial;display:flex;align-items:center;justify-content:center}
+.wrap{width:min(96vw,520px);padding:16px;text-align:center}
+h1{margin:0 0 10px;font-size:20px}
+button,select{
+  background:#202020;border:1px solid #2b2b2b;color:#fff;
+  padding:8px 12px;border-radius:10px;cursor:pointer
+}
+.primary{background:var(--p1);border:none;color:#08130d;font-weight:700}
+.panel{background:var(--panel);padding:16px;border-radius:14px;
+  margin-top:14px;box-shadow:0 18px 40px rgba(0,0,0,.55)}
+.word{font-size:30px;letter-spacing:6px;font-weight:700;margin:12px 0;color:var(--accent)}
+.keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(40px,1fr));gap:6px;margin-top:10px}
+.key{background:#1a1a1a;border-radius:8px;padding:8px;font-weight:700;cursor:pointer;transition:.1s}
+.key.used{background:#333;color:#999;cursor:not-allowed}
+.key.correct{background:var(--p1);color:#0b1412}
+.key.wrong{background:var(--p2)}
+.stats{margin-top:10px;font-size:13px;color:#cbd5e1;display:flex;justify-content:space-between}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Word Guess — Dual Mode 🔠</h1>
+  <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px">
+    <select id="mode">
+      <option value="bot" selected>You vs Bot</option>
+      <option value="2p">2 Players</option>
+    </select>
+    <button id="start" class="primary">Start</button>
+    <button id="restart">Restart</button>
+  </div>
+
+  <div id="game" class="panel" style="display:none">
+    <div class="word" id="displayWord">_ _ _ _ _</div>
+    <div id="keys" class="keys"></div>
+    <div class="stats">
+      <div>P1: <span id="s1">0</span></div>
+      <div>P2/Bot: <span id="s2">0</span></div>
+      <div>Tries: <span id="tries">0</span>/7</div>
+    </div>
+  </div>
+
+  <div id="status" style="margin-top:10px;font-size:14px;color:#b9c1c9;">Click Start to begin</div>
+</div>
+
+<script>
+const words=["APPLE","KERALA","PYTHON","ELEPHANT","MANGO","MOON","JAVASCRIPT","FLOWER","HANGMAN","COCONUT","GUITAR","LAPTOP"];
+const modeEl=document.getElementById('mode');
+const s1El=document.getElementById('s1'),s2El=document.getElementById('s2'),triesEl=document.getElementById('tries'),statusEl=document.getElementById('status');
+const game=document.getElementById('game'),display=document.getElementById('displayWord'),keys=document.getElementById('keys');
+let word,shown,tries,turn=1,mode='bot',p1=0,p2=0,playing=false;
+
+modeEl.onchange=e=>mode=e.target.value;
+document.getElementById('start').onclick=()=>start();
+document.getElementById('restart').onclick=()=>reset();
+
+function reset(){
+  playing=false; p1=p2=0; tries=0; turn=1;
+  s1El.textContent=0; s2El.textContent=0; triesEl.textContent=0;
+  game.style.display='none';
+  statusEl.textContent="Click Start to begin";
+}
+function start(){
+  reset(); game.style.display='block'; playing=true;
+  word=words[Math.floor(Math.random()*words.length)];
+  shown=Array(word.length).fill("_");
+  tries=0;
+  renderWord(); renderKeys();
+  statusEl.textContent=`Turn: P${turn}`;
+  if(mode==='bot'&&turn===2)setTimeout(botPlay,800);
+}
+function renderWord(){ display.textContent=shown.join(" "); }
+function renderKeys(){
+  keys.innerHTML='';
+  for(let i=65;i<=90;i++){
+    const k=String.fromCharCode(i);
+    const btn=document.createElement('div');
+    btn.textContent=k;btn.className='key';
+    btn.onclick=()=>select(k,btn);
+    keys.appendChild(btn);
+  }
+}
+function select(ch,btn){
+  if(!playing || btn.classList.contains('used'))return;
+  btn.classList.add('used');
+  let correct=false;
+  for(let i=0;i<word.length;i++){
+    if(word[i]===ch){ shown[i]=ch; correct=true; }
+  }
+  renderWord();
+  if(correct){
+    btn.classList.add('correct');
+    if(turn===1)p1++;else p2++;
+  }else{
+    btn.classList.add('wrong');
+    tries++; triesEl.textContent=tries;
+  }
+  s1El.textContent=p1; s2El.textContent=p2;
+  if(!shown.includes("_")){ win(); return; }
+  if(tries>=7){ lose(); return; }
+  turn = mode==='2p' ? (turn===1?2:1):(mode==='bot'?2:1);
+  statusEl.textContent=`Turn: P${turn===1?'1':'2/Bot'}`;
+  if(mode==='bot'&&turn===2)setTimeout(botPlay,1000);
+}
+function botPlay(){
+  if(!playing)return;
+  const opts=[...document.querySelectorAll('.key:not(.used)')];
+  const pick=opts[Math.floor(Math.random()*opts.length)];
+  select(pick.textContent,pick);
+}
+function win(){
+  playing=false;
+  statusEl.textContent=`🎉 ${turn===1?'P1':'P2/Bot'} guessed the word '${word}'!`;
+}
+function lose(){
+  playing=false;
+  statusEl.textContent=`😢 Out of tries! Word was '${word}'.`;
+}
+</script>
+</body>
+</html>
