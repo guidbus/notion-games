@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Penalty Duel — Premium Football</title>
+<style>
+:root{
+  --bg:#191919; --panel:#222; --txt:#e8eef3;
+  --p1:#00ffa6; --p2:#ff5675; --accent:#60a5fa; --grass:#0e1f0e;
+}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+  font-family:Inter,system-ui,Segoe UI,Roboto,Arial;display:flex;align-items:center;justify-content:center}
+.wrap{width:min(96vw,520px);padding:14px;text-align:center}
+h1{margin:0 0 8px;font-size:18px;letter-spacing:.2px}
+.controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px}
+select,button{background:#202020;border:1px solid #2a2a2a;color:#fff;padding:6px 12px;border-radius:10px;cursor:pointer}
+.primary{background:var(--p1);border:none;color:#0b1612;font-weight:800}
+.card{background:var(--panel);padding:10px;border-radius:14px;box-shadow:0 18px 45px rgba(0,0,0,.55)}
+canvas{display:block;width:100%;height:auto;border-radius:12px;background:linear-gradient(180deg,#0b0b0f,#101318)}
+.info{margin-top:8px;font-size:13px;color:#cbd5e1}
+.board{display:flex;justify-content:space-between;font-size:13px;margin-top:6px}
+.badge{background:#1b1b1b;border:1px solid #2a2a2a;padding:6px 10px;border-radius:8px;font-weight:800}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Penalty Duel — Premium Football ⚽️</h1>
+  <div class="controls">
+    <select id="mode">
+      <option value="bot" selected>You vs Bot</option>
+      <option value="2p">2 Players</option>
+    </select>
+    <button id="start" class="primary">Start</button>
+    <button id="restart">Restart</button>
+  </div>
+
+  <div class="card">
+    <canvas id="game" width="500" height="340" aria-label="Penalty Duel"></canvas>
+    <div class="board">
+      <div class="badge">P1 Goals: <span id="g1">0</span></div>
+      <div class="badge">P2/Bot Goals: <span id="g2">0</span></div>
+      <div class="badge">Kick: <span id="kick">1</span>/5</div>
+    </div>
+  </div>
+
+  <div class="info" id="status">Drag from ball to aim. Longer drag = more power. Curve by dragging at an angle.</div>
+</div>
+
+<script>
+/* Penalty Duel — premium compact football shootout
+   - Drag to aim/power/curve
+   - Keeper AI dives
+   - You vs Bot / 2P
+   - 5 kicks each + sudden death
+*/
+const cvs=document.getElementById('game'),ctx=cvs.getContext('2d');
+const W=cvs.width,H=cvs.height;
+const ui={g1:document.getElementById('g1'),g2:document.getElementById('g2'),kick:document.getElementById('kick'),
+  status:document.getElementById('status'),mode:document.getElementById('mode'),
+  start:document.getElementById('start'),restart:document.getElementById('restart')};
+
+let mode='bot', phase='aim', turn=1, shots1=0, shots2=0, kicks=1, playing=false, sudden=false;
+
+// Pitch + goal layout
+const box={x:60,y:40,w:380,h:200};
+const goal={x:W/2-90,y:60,w:180,h:16,depth:26};
+const spot={x:W/2,y:box.y+box.h+40}; // penalty spot
+
+// Ball & keeper
+let ball, keeper, trail=[], drag=null, resultText=null, resultTimer=0;
+
+function resetMatch(){
+  mode=ui.mode.value;
+  shots1=shots2=0; kicks=1; turn=1; sudden=false;
+  ui.g1.textContent=0; ui.g2.textContent=0; ui.kick.textContent=kicks;
+  newRound();
+}
+function newRound(){
+  phase='aim'; resultText=null; resultTimer=0; trail.length=0;
+  ball={x:spot.x,y:spot.y,r:6,vx:0,vy:0,spin:0,live:false};
+  // keeper centered on goal line
+  keeper={x:W/2,y:goal.y+goal.h+8,w:56,h:10,vy:0,dive:0,dir:0,reacted:false};
+  ui.status.textContent = `Turn: ${turn===1?'P1':'P2/Bot'} — drag from ball to aim & power`;
+  if(mode==='bot' && turn===2) setTimeout(botShoot,600);
+}
+
+function drawPitch(){
+  // grass gradient
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#0b150b'); g.addColorStop(1,'#0d1a0d');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  // penalty box
+  ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=2;
+  ctx.strokeRect(box.x,box.y,box.w,box.h);
+  // arc / spot
+  ctx.beginPath(); ctx.arc(spot.x,spot.y,2,0,Math.PI*2); ctx.stroke();
+
+  // goal posts
+  ctx.fillStyle='rgba(240,240,255,0.95)';
+  ctx.fillRect(goal.x,goal.y,goal.w,goal.h); // bar
+  ctx.fillRect(goal.x,goal.y,4,goal.depth);
+  ctx.fillRect(goal.x+goal.w-4,goal.y,4,goal.depth);
+  // net
+  ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=1;
+  for(let i=0;i<8;i++){ ctx.beginPath(); ctx.moveTo(goal.x,goal.y+i*3); ctx.lineTo(goal.x+goal.w,goal.y+i*3); ctx.stroke(); }
+}
+
+function drawKeeper(){
+  // base
+  ctx.fillStyle='rgba(80,160,255,0.9)';
+  ctx.beginPath(); ctx.roundRect(keeper.x-keeper.w/2, keeper.y-keeper.h/2, keeper.w, keeper.h, 6); ctx.fill();
+  // gloves flare
+  ctx.fillStyle='rgba(255,255,255,.25)';
+  ctx.fillRect(keeper.x-keeper.w/2-6, keeper.y-keeper.h/2, 6, keeper.h);
+  ctx.fillRect(keeper.x+keeper.w/2, keeper.y-keeper.h/2, 6, keeper.h);
+}
+
+function drawBall(){
+  // trail
+  for(let i=0;i<trail.length;i++){
+    const t=trail[i]; const a=Math.max(0,(t.life/20));
+    ctx.fillStyle=`rgba(255,255,255,${.10*a})`;
+    ctx.beginPath(); ctx.arc(t.x,t.y, t.r, 0, Math.PI*2); ctx.fill();
+    t.life--; if(t.life<=0){ trail.splice(i,1); i--; }
+  }
+
+  const grad=ctx.createRadialGradient(ball.x-2,ball.y-2,1,ball.x,ball.y,ball.r+3);
+  grad.addColorStop(0,'#fff'); grad.addColorStop(1,'#e7f1ff');
+  ctx.shadowBlur=10; ctx.shadowColor='#e7f1ff';
+  ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2); ctx.fill();
+  ctx.shadowBlur=0;
+}
+
+function aimGuide(){
+  if(!drag) return;
+  ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.setLineDash([6,8]);
+  ctx.beginPath(); ctx.moveTo(ball.x,ball.y); ctx.lineTo(drag.x,drag.y); ctx.stroke();
+  ctx.setLineDash([]);
+  // power bar
+  const dx=drag.x-ball.x, dy=drag.y-ball.y;
+  const power=Math.min(1, Math.hypot(dx,dy)/120);
+  ctx.fillStyle='rgba(0,255,166,.8)';
+  ctx.fillRect(20,H-18, power* (W-40), 6);
+}
+
+function physics(){
+  if(!ball.live) return;
+  // tiny gravity + magnus spin curve
+  const GR=0.16;
+  ball.vy += GR * 0.6;
+  // magnus: sideways accel proportional to spin & speed
+  ball.vx += 0.015 * ball.spin * (1 + Math.abs(ball.vy)/6);
+
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+
+  // trail
+  trail.push({x:ball.x,y:ball.y,r:ball.r-2,life:20});
+
+  // keeper AI move (once ball is kicked)
+  keeperAI();
+
+  // collisions — posts / crossbar
+  // crossbar rectangle
+  if(lineRect(ball.x-ball.r,ball.y-ball.r,ball.r*2,ball.r*2, goal.x,goal.y,goal.w,goal.h)){
+    // simple bounce / block
+    ball.vy = Math.abs(ball.vy)*0.2; ball.y = goal.y - ball.r - 0.5;
+  }
+  // posts slender
+  if(circleRectCollide(ball.x,ball.y,ball.r, goal.x,goal.y,4,goal.depth) ||
+     circleRectCollide(ball.x,ball.y,ball.r, goal.x+goal.w-4,goal.y,4,goal.depth)){
+    ball.vx*=-0.4; // deflect
+  }
+
+  // keeper save
+  if(circleRectCollide(ball.x,ball.y,ball.r, keeper.x-keeper.w/2, keeper.y-keeper.h/2, keeper.w, keeper.h)){
+    // save → reflect upward slight
+    ball.vy = -Math.abs(ball.vy)*0.4 - 1.2;
+    ball.vx *= 0.2;
+    announce('🧤 Saved!');
+    finishKick(false,true);
+  }
+
+  // goal line check — ball crosses fully under bar & between posts
+  if(ball.y < goal.y+goal.h && ball.x>goal.x+6 && ball.x<goal.x+goal.w-6){
+    // it's entering goal mouth; when y < (goal top) and goes behind line → count goal
+    announce('⚽️ Goal!');
+    finishKick(true,false);
+  }
+
+  // missed outside or ground
+  if(ball.y > H+20 || ball.x < -30 || ball.x > W+30){
+    announce('❌ Miss!');
+    finishKick(false,false);
+  }
+}
+
+function keeperAI(){
+  if(keeper.reacted) {
+    // continue dive momentum
+    keeper.x += keeper.dir * 3.4;
+    keeper.x = Math.max(goal.x+30, Math.min(goal.x+goal.w-30, keeper.x));
+    return;
+  }
+  // react when ball passes penalty spot height
+  if(ball.y < spot.y-40){
+    keeper.reacted=true;
+    // choose dive direction based on ball target x with some randomness
+    const targetX = ball.x + ball.vx*10;
+    keeper.dir = targetX < W/2 ? -1 : 1;
+    // 20% chance wrong-way dive
+    if(Math.random()<0.2) keeper.dir*=-1;
+  }
+}
+
+function finishKick(isGoal, saved){
+  // stop ball logic soon after result shown
+  ball.live=false;
+  resultTimer=30; // short hold
+  // update scores & turn logic
+  if(isGoal) (turn===1? (shots1++):(shots2++));
+  updateUI();
+
+  // if both have taken this kick number, advance
+  if(turn===1){ turn=2; }
+  else{
+    // one full round (both kicked)
+    kicks++;
+    if(kicks<=5){
+      // check early win (unassailable lead)
+      const left1 = 5 - (kicks-1), left2 = 5 - (kicks-1);
+      // (we'll just proceed standard; sudden death after 5)
+    }
+    // result check after 5
+    if(kicks>5 && !sudden){
+      sudden=true; ui.status.textContent='Sudden Death! Alternate until someone leads.';
+    }
+    turn=1;
+  }
+}
+
+function nextTurn(){
+  // check match end
+  if(!sudden && kicks>5){
+    endMatch(); return;
+  }
+  if(sudden && kicks>5){
+    // sudden death condition: after each pair, if different totals end
+    const pairDone = (turn===1); // we just completed P2 then switched to P1
+    if(pairDone && shots1!==shots2){ endMatch(); return; }
+  }
+  ui.kick.textContent = Math.min(kicks,5);
+  newRound();
+}
+
+function endMatch(){
+  playing=false; phase='end';
+  let msg='';
+  if(shots1>shots2) msg='🏆 P1 Wins!';
+  else if(shots2>shots1) msg= mode==='bot' ? '🤖 Bot Wins!' : '🏆 P2 Wins!';
+  else msg='🤝 Draw!';
+  ui.status.textContent = `Match Over — ${msg} (P1:${shots1} / P2:${shots2})`;
+}
+
+function updateUI(){
+  ui.g1.textContent=shots1; ui.g2.textContent=shots2; ui.kick.textContent=Math.min(kicks,5);
+}
+
+function announce(text){
+  resultText=text;
+}
+
+function loop(){
+  ctx.clearRect(0,0,W,H);
+  drawPitch();
+  drawKeeper();
+  drawBall();
+  aimGuide();
+
+  if(playing){
+    if(ball.live) physics();
+    else if(resultText){
+      // show big text
+      ctx.fillStyle='rgba(255,255,255,.9)';
+      ctx.font='bold 22px Inter, system-ui, sans-serif';
+      ctx.textAlign='center';
+      ctx.fillText(resultText, W/2, H*0.5);
+      resultTimer--;
+      if(resultTimer<=0){ resultText=null; nextTurn(); }
+    }
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// Input (drag from ball)
+function withinBall(px,py){ return Math.hypot(px-ball.x,py-ball.y) <= ball.r+14; }
+
+function onDown(px,py){
+  if(!playing || phase!=='aim') return;
+  if(!(mode==='bot' && turn===2) && withinBall(px,py)){
+    drag={sx:px, sy:py, x:px, y:py};
+  }
+}
+function onMove(px,py){
+  if(drag){ drag.x=px; drag.y=py; }
+}
+function onUp(px,py){
+  if(!drag) return;
+  // shot vector from drag
+  const dx = drag.sx - drag.x;
+  const dy = drag.sy - drag.y;
+  const power = Math.min(1.0, Math.hypot(dx,dy)/140);
+  const ang = Math.atan2(dy,dx);
+  // map to initial velocity
+  const base = 7 + power*8; // 7..15
+  ball.vx = Math.cos(ang)*base;
+  ball.vy = Math.sin(ang)*base*-1; // up
+  // spin based on side angle curve (perp component)
+  ball.spin = Math.max(-2.5, Math.min(2.5, (drag.x-ball.x)/60));
+  ball.live=true; phase='flight'; drag=null;
+  ui.status.textContent='…';
+}
+
+cvs.addEventListener('mousedown',e=>{const r=cvs.getBoundingClientRect(); onDown(e.clientX-r.left,e.clientY-r.top);});
+cvs.addEventListener('mousemove',e=>{const r=cvs.getBoundingClientRect(); onMove(e.clientX-r.left,e.clientY-r.top);});
+cvs.addEventListener('mouseup',e=>{const r=cvs.getBoundingClientRect(); onUp(e.clientX-r.left,e.clientY-r.top);});
+cvs.addEventListener('touchstart',e=>{const t=e.touches[0],r=cvs.getBoundingClientRect(); onDown(t.clientX-r.left,t.clientY-r.top);},{passive:true});
+cvs.addEventListener('touchmove',e=>{const t=e.touches[0],r=cvs.getBoundingClientRect(); onMove(t.clientX-r.left,t.clientY-r.top);},{passive:true});
+cvs.addEventListener('touchend',e=>{const t=e.changedTouches[0],r=cvs.getBoundingClientRect(); onUp(t.clientX-r.left,t.clientY-r.top);},{passive:true});
+
+// Keeper & Bot shooter logic
+function keeperReset(){ keeper.x=W/2; keeper.reacted=false; keeper.dir=0; }
+function botShoot(){
+  if(phase!=='aim') return;
+  // choose a corner randomly, add small curve
+  const targets=[goal.x+22, W/2, goal.x+goal.w-22];
+  const tx = targets[Math.floor(Math.random()*targets.length)];
+  const aimY = goal.y + 6 + Math.random()*10;
+  const dx = ball.x - tx, dy = ball.y - aimY;
+  const base = 7 + Math.random()*7;
+  const ang = Math.atan2(dy,dx);
+  ball.vx = Math.cos(ang)*base;
+  ball.vy = Math.sin(ang)*base*-1;
+  ball.spin = (tx<W/2? -1: 1) * (0.6 + Math.random()*1.6);
+  ball.live=true; phase='flight';
+  ui.status.textContent='…';
+}
+
+function lineRect(x,y,w,h, rx,ry,rw,rh){
+  // simple AABB overlap
+  return !(x+w<rx || x>rx+rw || y+h<ry || y>ry+rh);
+}
+function circleRectCollide(cx,cy,cr, rx,ry,rw,rh){
+  const testX = Math.max(rx, Math.min(cx, rx+rw));
+  const testY = Math.max(ry, Math.min(cy, ry+rh));
+  const d = Math.hypot(cx-testX, cy-testY);
+  return d <= cr;
+}
+
+// roundRect polyfill for some browsers/editors
+if(!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+    r=Math.min(r||0,w/2,h/2);
+    this.beginPath();
+    this.moveTo(x+r,y);
+    this.arcTo(x+w,y,x+w,y+h,r);
+    this.arcTo(x+w,y+h,x,y+h,r);
+    this.arcTo(x,y+h,x,y,r);
+    this.arcTo(x,y,x+w,y,r);
+    this.closePath(); return this;
+  }
+}
+
+// UI
+ui.start.onclick=()=>{ if(!playing){ playing=true; resetMatch(); } };
+ui.restart.onclick=()=>{ playing=true; resetMatch(); };
+
+resetMatch(); // ready state
+(function run(){ requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>
