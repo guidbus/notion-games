@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Cricket Power Play — Easy & Realistic</title>
+<style>
+:root{ --bg:#191919; --panel:#222; --txt:#e8eef3; --pitch:#0d1f0d;
+  --good:#00ffa6; --accent:#60a5fa; --warn:#ff5675; --gold:#ffd166; }
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+  font-family:Inter,system-ui,Segoe UI,Roboto,Arial;display:flex;align-items:center;justify-content:center}
+.wrap{width:min(96vw,560px);padding:14px;text-align:center}
+h1{margin:0 0 8px;font-size:18px}
+.card{background:var(--panel);padding:10px;border-radius:14px;box-shadow:0 18px 45px rgba(0,0,0,.55)}
+canvas{display:block;width:100%;height:auto;border-radius:12px;background:linear-gradient(180deg,#0b0b0f,#101318)}
+.hud{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#cbd5e1}
+.badge{background:#1b1b1b;border:1px solid #2a2a2a;padding:6px 10px;border-radius:8px;font-weight:800}
+.controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:8px 0}
+button,select{background:#202020;border:1px solid #2a2a2a;color:#fff;padding:6px 12px;border-radius:10px;cursor:pointer}
+.primary{background:var(--good);border:none;color:#0b1612;font-weight:800}
+.tip{font-size:12px;color:#94a3b8;margin-top:6px}
+.mobile{display:flex;gap:8px;justify-content:center;margin-top:8px}
+.mobile button{min-width:70px;padding:10px;border-radius:10px}
+.toggle{background:#333}
+.active{outline:2px solid var(--good)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Cricket Power Play — Easy & Realistic 🏏</h1>
+
+  <div class="controls">
+    <button id="start" class="primary">Start</button>
+    <button id="restart">Restart</button>
+    <button id="shotG" class="toggle active" title="Ground shot (safe)">G</button>
+    <button id="shotL" class="toggle" title="Loft shot (boundary)">L</button>
+  </div>
+
+  <div class="card">
+    <canvas id="game" width="520" height="360" aria-label="Cricket Power Play"></canvas>
+    <div class="hud">
+      <div class="badge">Score: <span id="score">0</span></div>
+      <div class="badge">Balls: <span id="balls">12</span></div>
+      <div class="badge">Wkts: <span id="wkts">0</span>/3</div>
+    </div>
+  </div>
+
+  <div id="status" class="tip">
+    Aim: mouse move / touch drag → arrow. Power: <b>SPACE hold</b> or <b>HIT</b> → release to play.  
+    G = ground, L = loft. Cross yellow rope = 4/6.
+  </div>
+
+  <div class="mobile">
+    <button id="aimL">◀︎</button>
+    <button id="hit">HIT</button>
+    <button id="aimR">▶︎</button>
+  </div>
+</div>
+
+<script>
+const cvs=document.getElementById('game'), ctx=cvs.getContext('2d');
+const W=cvs.width, H=cvs.height;
+const ui={score:document.getElementById('score'), balls:document.getElementById('balls'),
+  wkts:document.getElementById('wkts'), status:document.getElementById('status')};
+const pitch={x:W/2-70, y:80, w:140, h:H-160};
+const bat={x:W/2+10, y:H-85};
+
+let aim={x:W/2+90, y:H-140};
+let charging=false, power=0, playing=false;
+let score=0, balls=12, wkts=0, msg=null, msgTimer=0;
+let ball=null, seam=0;
+let fielders=[];
+let shotType='G'; // 'G' ground, 'L' loft
+
+// easy-mode tuning
+const EASY={
+  pace: 0.85,           // ball slower
+  contactWindow: 86,    // pixels window around bat to accept hit
+  catchChance: 0.25,    // lower = easier
+  fielderSpeed: 0.45,   // slower fielders
+  minPower: 0.45        // minimum power on contact
+};
+
+function reset(){
+  score=0; balls=12; wkts=0; power=0; charging=false; msg=null; msgTimer=0;
+  ui.score.textContent=score; ui.balls.textContent=balls; ui.wkts.textContent=wkts;
+  spawnFielders(); newBall(); playing=true; loop();
+}
+
+document.getElementById('start').onclick=()=>{ if(!playing) reset(); };
+document.getElementById('restart').onclick=reset;
+document.getElementById('shotG').onclick=()=>{ shotType='G'; setActive(); };
+document.getElementById('shotL').onclick=()=>{ shotType='L'; setActive(); };
+function setActive(){
+  document.getElementById('shotG').classList.toggle('active', shotType==='G');
+  document.getElementById('shotL').classList.toggle('active', shotType==='L');
+}
+
+function spawnFielders(){
+  fielders=[
+    {x:W/2+130, y:H-150, r:12, dir:1, path:40, axis:'x'},
+    {x:W-30,    y:H-120, r:12, dir:-1, path:60, axis:'y'},
+    {x:W/2+90,  y:H-210, r:12, dir:1, path:50, axis:'x'},
+  ];
+}
+function newBall(){
+  const line = (Math.random()*0.5 - 0.25);
+  const length = 0.62 + Math.random()*0.2;
+  const pitchPoint={ x: W/2 + line*58, y: pitch.y + pitch.h*length };
+  const startX = W/2 + (Math.random()*0.4-0.2)*38;
+  const pace = 28 / EASY.pace;
+
+  ball={
+    x:startX, y:pitch.y-30, r:5,
+    vx:(pitchPoint.x - startX)/pace, vy:(pitchPoint.y - (pitch.y-30))/pace,
+    state:'run', landed:false, result:null, bounced:false
+  };
+  ui.status.textContent='Aim arrow → hold SPACE / HIT → release near bat to play.';
+}
+
+function drawScene(){
+  // bg
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#0a0a12'); g.addColorStop(1,'#0f1118');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  // pitch & boundary
+  ctx.fillStyle='var(--pitch)'; ctx.fillRect(pitch.x,pitch.y,pitch.w,pitch.h);
+  ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=2;
+  ctx.strokeRect(pitch.x, pitch.y+20, pitch.w, 2);
+  ctx.strokeRect(pitch.x, pitch.y+pitch.h-20, pitch.w, 2);
+  ctx.strokeStyle='rgba(255,214,102,.7)'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(W-6, pitch.y-8); ctx.lineTo(W-6, pitch.y+pitch.h+8); ctx.stroke();
+
+  // bat stumps
+  ctx.fillStyle='#e8eef3';
+  for(let i=-1;i<=1;i++) ctx.fillRect(bat.x-16 + i*8, bat.y-38, 3, 18);
+
+  // aim arrow + reticle
+  ctx.strokeStyle='var(--accent)'; ctx.lineWidth=2; ctx.setLineDash([6,6]);
+  ctx.beginPath(); ctx.moveTo(bat.x, bat.y-20); ctx.lineTo(aim.x, aim.y); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='rgba(96,165,250,.25)'; ctx.beginPath(); ctx.arc(aim.x,aim.y,8,0,Math.PI*2); ctx.fill();
+
+  // power bar
+  ctx.fillStyle='#0f0f14'; const bx=30, by=H-18, bw=W-60, bh=10; ctx.fillRect(bx,by,bw,bh);
+  const p = Math.min(1, (EASY.minPower + power)/1.0);
+  ctx.fillStyle=p>0.85?'#22c55e': (p>0.6?'#84cc16':'#f59e0b');
+  ctx.fillRect(bx,by,bw*Math.min(1,(EASY.minPower+p)/1.2),bh);
+
+  // fielders
+  ctx.fillStyle='rgba(96,165,250,.9)';
+  for(const f of fielders){ ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill(); }
+
+  // ball with seam spin
+  if(ball){
+    ctx.fillStyle='#ff5675'; ctx.shadowBlur=8; ctx.shadowColor='#ff5675';
+    ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+    // seam
+    ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=1;
+    ctx.save(); ctx.translate(ball.x,ball.y); ctx.rotate(seam); 
+    ctx.beginPath(); ctx.moveTo(-ball.r,0); ctx.lineTo(ball.r,0); ctx.stroke();
+    ctx.restore();
+  }
+
+  if(msg){
+    ctx.fillStyle='#fff'; ctx.font='bold 22px Inter,system-ui'; ctx.textAlign='center';
+    ctx.fillText(msg, W/2, 56); ctx.textAlign='start';
+  }
+}
+
+function update(){
+  // fielders easy patrol
+  for(const f of fielders){
+    if(f.axis==='x'){ f.x += EASY.fielderSpeed*f.dir; if(Math.abs(f.x-(f._mx|| (f._mx=W/2+ (f===fielders[0]?130:90)))) > f.path) f.dir*=-1; }
+    else{ f.y += EASY.fielderSpeed*f.dir; if(Math.abs(f.y-(f._my|| (f._my=H-120))) > f.path) f.dir*=-1; }
+  }
+
+  if(!ball) return;
+
+  if(ball.state==='run'){
+    ball.x += ball.vx; ball.y += ball.vy; seam += 0.25;
+
+    // natural bounce once
+    if(!ball.landed && ball.y >= pitch.y + pitch.h*0.55){
+      ball.landed=true; ball.vy = Math.abs(ball.vy)*0.62;
+    }
+
+    // miss window passed
+    if(ball.y >= bat.y-10){
+      // if not hit, decide bowled or dot (easy mode: bowled less)
+      if(Math.abs(ball.x - (bat.x-6))<10 && Math.random()<0.35){ wicket('Bowled! 🎯'); }
+      else dotBall();
+    }
+  }
+  else if(ball.state==='shot'){
+    ball.x += ball.vx; ball.y += ball.vy; seam += 0.15;
+    ball.vy += 0.20;
+
+    // easy catch: chance reduced
+    if(!ball.bounced){
+      for(const f of fielders){
+        if(dist(ball.x,ball.y,f.x,f.y) < f.r+4){
+          if(Math.random()<EASY.catchChance){ wicket('Caught! 👐'); return; }
+        }
+      }
+    }
+
+    if(ball.y >= H-26){
+      ball.y=H-26; ball.vy*=-0.35; ball.vx*=0.985; ball.bounced=true;
+      if(Math.abs(ball.vx)<0.5 && Math.abs(ball.vy)<0.6){ settleRuns(Math.random()<0.6?2:1); return; }
+    }
+
+    if(ball.x > W-6){
+      const six = (!ball.bounced && ball.y < pitch.y+pitch.h*0.58);
+      settleRuns(six?6:4); return;
+    }
+    if(ball.x < 0){ settleRuns(Math.random()<0.5?0:1); return; }
+  }
+
+  if(msgTimer>0){ msgTimer--; if(msgTimer===0) msg=null; }
+}
+
+function tryHit(){
+  // hit allowed if ball near bat (easy large window)
+  if(!ball || ball.state!=='run') return false;
+  if(Math.abs(ball.y - (bat.y-18)) > EASY.contactWindow/2) return false;
+
+  const basePow = Math.max(EASY.minPower, power);
+  const p = Math.min(1, basePow);
+  const speed = (shotType==='L' ? (5.2 + p*5.8) : (4.6 + p*4.0));
+  const dx = aim.x - (bat.x-6), dy = aim.y - (bat.y-18);
+  const ang = Math.atan2(dy, dx);
+
+  const elev = (shotType==='L')
+    ? Math.max(-Math.PI/3, Math.min(-0.12, ang - Math.PI/2))
+    : Math.max(-0.28, Math.min(-0.06, ang - Math.PI/2)); // ground
+
+  ball.state='shot'; ball.bounced=false;
+  ball.vx = Math.cos(ang) * (speed*0.95);
+  ball.vy = Math.sin(elev) * (speed*1.05);
+  msg = (shotType==='L' ? (p>0.8?'Lofted power!':'Loft!') : (p>0.7?'Driven hard!':'Drive'));
+  msgTimer=40;
+  return true;
+}
+
+// results
+function settleRuns(r){ score+=r; ui.score.textContent=score; msg=(r===6?'SIX! 💥':r===4?'FOUR! 🔥': (r===2?'2 runs':'Single')); msgTimer=70; nextDelivery(); }
+function wicket(t){ wkts++; ui.wkts.textContent=wkts; msg=t; msgTimer=70; nextDelivery(); }
+function dotBall(){ msg='Dot ball'; msgTimer=50; nextDelivery(); }
+
+function nextDelivery(){
+  balls--; ui.balls.textContent=balls;
+  if(balls<=0 || wkts>=3){ playing=false; ui.status.textContent=`Innings Over — Score ${score}/${wkts}`; return; }
+  setTimeout(()=>{ power=0; charging=false; newBall(); }, 500);
+}
+
+function loop(){ if(!playing){ drawScene(); return; } drawScene(); update(); requestAnimationFrame(loop); }
+
+// input: aim + power
+cvs.addEventListener('mousemove',e=>{ const r=cvs.getBoundingClientRect(); aim.x = clamp(e.clientX-r.left, W/2, W-10); aim.y = clamp(e.clientY-r.top, pitch.y+20, H-60); });
+cvs.addEventListener('touchmove',e=>{ const t=e.touches[0], r=cvs.getBoundingClientRect(); aim.x = clamp(t.clientX-r.left, W/2, W-10); aim.y = clamp(t.clientY-r.top, pitch.y+20, H-60); }, {passive:true});
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'){ e.preventDefault(); charging=true; }
+  if(e.key==='g'||e.key==='G'){ shotType='G'; setActive(); }
+  if(e.key==='l'||e.key==='L'){ shotType='L'; setActive(); }
+});
+document.addEventListener('keyup',e=>{
+  if(e.code==='Space'){ e.preventDefault(); if(tryHit()){} power=0; charging=false; }
+});
+
+// power charge
+setInterval(()=>{ if(charging) power = Math.min(1, power+0.03); }, 30);
+
+// helpers
+function dist(a,b,c,d){ return Math.hypot(a-c,b-d); }
+function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
+
+// mobile buttons
+document.getElementById('aimL').onmousedown=()=>aimStep(-12);
+document.getElementById('aimR').onmousedown=()=>aimStep(12);
+document.getElementById('aimL').ontouchstart=()=>aimStep(-18);
+document.getElementById('aimR').ontouchstart=()=>aimStep(18);
+document.getElementById('hit').onmousedown=()=>{ charging=true; setTimeout(()=>{ if(charging){ charging=false; tryHit(); power=0; } }, 200); };
+document.getElementById('hit').onmouseup=()=>{ if(charging){ charging=false; tryHit(); power=0; } };
+document.getElementById('hit').ontouchstart=()=>{ charging=true; setTimeout(()=>{ if(charging){ charging=false; tryHit(); power=0; } }, 200); };
+document.getElementById('hit').ontouchend=()=>{ if(charging){ charging=false; tryHit(); power=0; } };
+
+function aimStep(dx){ aim.x = clamp(aim.x+dx, W/2, W-10); }
+
+// first paint
+drawScene();
+ui.status.textContent='Start → Aim with mouse | Hold SPACE / HIT to charge → release near bat. G=ground, L=loft.';
+</script>
+</body>
+</html>
