@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tic Tac Toe — Pro Bot</title>
+<style>
+  :root{ --bg:#191919; --panel:#222; --line:#3a3a3a; --x:#00ffa6; --o:#60a5fa; --txt:#e8eef3; }
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+    font-family:Inter,system-ui,Segoe UI,Roboto,Arial;display:flex;align-items:center;justify-content:center}
+  .wrap{width:min(92vw,440px);padding:16px}
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  h1{margin:0;font-size:18px}
+  button{background:var(--panel);border:1px solid #2b2b2b;color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer}
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:var(--panel);padding:8px;border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,.55)}
+  .cell{aspect-ratio:1/1;background:#1f1f1f;border:1px solid var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;
+        font-weight:900;font-size:clamp(38px,9vw,64px);user-select:none;cursor:pointer;transition:transform .08s}
+  .cell:active{transform:scale(.98)}
+  .info{margin-top:8px;font-size:13px;color:#b9c1c7;text-align:center}
+  .x{color:var(--x)} .o{color:var(--o)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Tic Tac Toe — Pro Bot</h1>
+    <div style="display:flex;gap:8px">
+      <button id="restart">Restart</button>
+      <button id="swap">You: X</button>
+    </div>
+  </div>
+  <div id="board" class="board"></div>
+  <div id="status" class="info">Your turn (X). Bot is O.</div>
+</div>
+
+<script>
+const boardEl = document.getElementById('board');
+const statusEl = document.getElementById('status');
+const restartBtn = document.getElementById('restart');
+const swapBtn = document.getElementById('swap');
+
+let cells, grid, you='X', bot='O', gameOver=false;
+
+function setup(){
+  boardEl.innerHTML='';
+  grid = Array(9).fill('');
+  for(let i=0;i<9;i++){
+    const c=document.createElement('div');
+    c.className='cell';
+    c.addEventListener('click',()=>onClick(i));
+    boardEl.appendChild(c);
+  }
+  cells=[...document.querySelectorAll('.cell')];
+  gameOver=false;
+  statusEl.textContent = `Your turn (${you}). Bot is ${bot}.`;
+  if(you==='O') setTimeout(botMove, 400);
+}
+
+function onClick(i){
+  if(gameOver || grid[i]) return;
+  grid[i]=you; render();
+  const w = winner(grid);
+  if(w || full(grid)){ finish(w); return; }
+  setTimeout(botMove, 260);
+}
+
+function render(){
+  grid.forEach((v,i)=>{
+    const el=cells[i]; el.textContent=v;
+    el.classList.toggle('x', v==='X'); el.classList.toggle('o', v==='O');
+  });
+}
+
+function lines(){
+  return [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+}
+function winner(g){
+  for(const [a,b,c] of lines()){
+    if(g[a] && g[a]===g[b] && g[b]===g[c]) return g[a];
+  }
+  return null;
+}
+function full(g){ return g.every(v=>v); }
+
+function botMove(){
+  if(gameOver) return;
+  // minimax with small priority tweaks
+  const best = findBest(grid, bot);
+  grid[best] = bot; render();
+  const w = winner(grid);
+  if(w || full(grid)){ finish(w); return; }
+  statusEl.textContent = `Your turn (${you}).`;
+}
+
+function findBest(g, player){
+  // try win
+  for(let i=0;i<9;i++){ if(!g[i]){ g[i]=player; if(winner(g)===player){ g[i]=''; return i; } g[i]=''; } }
+  // try block
+  const opp = player=== 'X'? 'O':'X';
+  for(let i=0;i<9;i++){ if(!g[i]){ g[i]=opp; if(winner(g)===opp){ g[i]=''; return i; } g[i]=''; } }
+  // center > corners > sides
+  const prefs = [4,0,2,6,8,1,3,5,7];
+  // simple minimax depth-limited
+  let bestScore=-1e9, bestMove=4;
+  for(const i of prefs){
+    if(!g[i]){
+      g[i]=player;
+      const sc = -negamax(g, opp, 0);
+      g[i]='';
+      if(sc>bestScore){ bestScore=sc; bestMove=i; }
+    }
+  }
+  return bestMove;
+}
+function negamax(g, player, depth){
+  const w=winner(g);
+  if(w===bot) return 10-depth;
+  if(w===you) return depth-10;
+  if(full(g)) return 0;
+  const opp = player==='X'?'O':'X';
+  let best=-1e9;
+  for(let i=0;i<9;i++){
+    if(!g[i]){
+      g[i]=player;
+      const v = -negamax(g, opp, depth+1);
+      g[i]='';
+      if(v>best) best=v;
+    }
+  }
+  return best;
+}
+
+function finish(w){
+  gameOver=true;
+  if(w) statusEl.textContent = (w===you? '✅ You win!' : '🤖 Bot wins!');
+  else statusEl.textContent = '🤝 Draw.';
+}
+
+restartBtn.onclick=()=>setup();
+swapBtn.onclick=()=>{
+  [you,bot]=[bot,you];
+  swapBtn.textContent = `You: ${you}`;
+  setup();
+};
+
+setup();
+</script>
+</body>
+</html>
