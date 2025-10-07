@@ -1,92 +1,169 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Snake — Fixed Working Version</title>
-<style>
-  body{
-    margin:0;height:100vh;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;
-    background:#191919;color:#fff;font-family:system-ui;
-  }
-  canvas{
-    background:#3a3a3a;
-    border-radius:12px;
-  }
-  .controls{margin-top:15px}
-  button{
-    background:#00ff99;color:#000;font-weight:600;
-    border:none;border-radius:8px;padding:8px 16px;
-    margin:0 5px;cursor:pointer;font-size:15px;
-  }
-  .score{margin-top:10px;font-weight:600}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Color Catch Logic</title>
+  <style>
+    body {
+      margin: 0;
+      background: #191919;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: "Poppins", sans-serif;
+      overflow: hidden;
+    }
+    canvas {
+      background: radial-gradient(circle at 50% 30%, #1a1a1a, #0a0a0a);
+      border-radius: 20px;
+      display: block;
+    }
+    #score {
+      position: absolute;
+      top: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 22px;
+      color: #ffffff;
+      text-shadow: 0 0 10px #ff3ea5;
+    }
+    #startBtn,
+    #retryBtn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 14px 28px;
+      font-size: 20px;
+      background: white;
+      color: black;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+      transition: all 0.3s ease;
+      display: none;
+    }
+    #startBtn:hover,
+    #retryBtn:hover {
+      transform: translate(-50%, -50%) scale(1.05);
+          }
+    #startBtn {
+      display: block;
+    }
+  </style>
 </head>
 <body>
-<canvas id="board" width="500" height="500"></canvas>
-<div class="controls">
-  <button id="start">Start</button>
-  <button id="pause">Pause</button>
-  <button id="reset">Reset</button>
-</div>
-<div class="score">Score: <span id="score">0</span></div>
+  <canvas id="gameCanvas" width="400" height="500"></canvas>
+  <div id="score">Score: 0</div>
+  <button id="startBtn">Start Game</button>
+  <button id="retryBtn">Retry</button>
 
-<script>
-const cvs=document.getElementById("board"),ctx=cvs.getContext("2d");
-const cols=25,rows=25,cell=cvs.width/cols;
-let snake,dir,food,score=0,loopId=null,paused=false;
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const scoreText = document.getElementById("score");
+    const startBtn = document.getElementById("startBtn");
+    const retryBtn = document.getElementById("retryBtn");
 
-function resetGame(){
-  snake=[{x:12,y:12}];
-  dir={x:1,y:0};
-  spawnFood();
-  score=0;document.getElementById("score").textContent=score;
-  draw();
-}
-function spawnFood(){
-  food={x:Math.floor(Math.random()*cols),y:Math.floor(Math.random()*rows)};
-}
-function draw(){
-  ctx.fillStyle="#3a3a3a";ctx.fillRect(0,0,cvs.width,cvs.height);
-  // food
-  ctx.fillStyle="#ff6b00";
-  ctx.beginPath();ctx.arc(food.x*cell+cell/2,food.y*cell+cell/2,cell/3,0,Math.PI*2);ctx.fill();
-  // snake
-  ctx.fillStyle="#00eaff";
-  snake.forEach(p=>ctx.fillRect(p.x*cell,p.y*cell,cell-1,cell-1));
-}
-function update(){
-  if(paused)return;
-  const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
-  // wrap
-  if(head.x<0)head.x=cols-1;if(head.x>=cols)head.x=0;
-  if(head.y<0)head.y=rows-1;if(head.y>=rows)head.y=0;
-  // hit self
-  if(snake.some((s,i)=>i>0&&s.x===head.x&&s.y===head.y)){resetGame();return;}
-  snake.unshift(head);
-  if(head.x===food.x&&head.y===food.y){score+=10;document.getElementById("score").textContent=score;spawnFood();}
-  else snake.pop();
-  draw();
-}
-function startLoop(){
-  if(loopId)clearInterval(loopId);
-  loopId=setInterval(update,120);
-}
+    let gameStarted = false;
+    let gameOver = false;
+    let score = 0;
+    let speed = 2;
+    let orbs = [];
 
-document.getElementById("start").onclick=()=>{
-  paused=false;startLoop();
-};
-document.getElementById("pause").onclick=()=>{paused=!paused;};
-document.getElementById("reset").onclick=()=>{resetGame();};
-window.addEventListener("keydown",e=>{
-  if(e.key==="ArrowUp"&&dir.y===0)dir={x:0,y:-1};
-  if(e.key==="ArrowDown"&&dir.y===0)dir={x:0,y:1};
-  if(e.key==="ArrowLeft"&&dir.x===0)dir={x:-1,y:0};
-  if(e.key==="ArrowRight"&&dir.x===0)dir={x:1,y:0};
-});
+    const player = { x: 180, y: 460, w: 60, h: 10, color: "#ff3ea5", speed: 6 };
+    const colors = ["#ff3ea5", "#00fff0", "#ffcc00", "#00ff7f", "#ff0044"];
 
-resetGame();
-</script>
+    function createOrb() {
+      const x = Math.random() * (canvas.width - 20);
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      return { x, y: -20, r: 10, color };
+    }
+
+    function drawPlayer() {
+      const gradient = ctx.createLinearGradient(player.x, player.y, player.x + player.w, player.y);
+      gradient.addColorStop(0, "#ff6ec7");
+      gradient.addColorStop(1, "#ff3ea5");
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = "#ff3ea5";
+      ctx.fillStyle = gradient;
+      ctx.fillRect(player.x, player.y, player.w, player.h);
+    }
+
+    function drawOrb(orb) {
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r, 0, Math.PI * 2);
+      ctx.fillStyle = orb.color;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = orb.color;
+      ctx.fill();
+    }
+
+    function update() {
+      if (!gameStarted || gameOver) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawPlayer();
+
+      orbs.forEach((orb, i) => {
+        orb.y += speed;
+        drawOrb(orb);
+
+        // Catch orb
+        if (
+          orb.y + orb.r > player.y &&
+          orb.x > player.x &&
+          orb.x < player.x + player.w
+        ) {
+          score++;
+          scoreText.textContent = "Score: " + score;
+          orbs.splice(i, 1);
+        }
+
+        // Miss orb -> Fail
+        if (orb.y > canvas.height + 20) {
+          gameOver = true;
+          retryBtn.style.display = "block";
+        }
+      });
+
+      if (Math.random() < 0.02) orbs.push(createOrb());
+      if (score % 20 === 0 && score > 0) speed += 0.002;
+
+      requestAnimationFrame(update);
+    }
+
+    // 🎮 Controls
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft" && player.x > 0) player.x -= player.speed;
+      if (e.key === "ArrowRight" && player.x + player.w < canvas.width)
+        player.x += player.speed;
+    });
+document.addEventListener("mousemove", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      player.x = mouseX - player.w / 2;
+      player.x = Math.max(0, Math.min(player.x, canvas.width - player.w));
+    });
+
+    function startGame() {
+      score = 0;
+      speed = 2;
+      gameStarted = true;
+      gameOver = false;
+      orbs = [];
+      startBtn.style.display = "none";
+      retryBtn.style.display = "none";
+      scoreText.textContent = "Score: 0";
+      update();
+    }
+
+    startBtn.addEventListener("click", startGame);
+    retryBtn.addEventListener("click", startGame);
+  </script>
 </body>
 </html>
