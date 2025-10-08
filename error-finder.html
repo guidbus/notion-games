@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
+<title>Error Finder — Grammar Proofreading</title>
+<style>
+:root{
+  --bg:#191919; --card:#0f1216; --ink:#eaf2f7; --muted:#9fb0c2;
+  --accent:#00ffa6; --good:#22c55e; --bad:#ff5f5f; --edge:#21262d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:Inter,system-ui,Segoe UI,Roboto;overflow:hidden} /* no scroll */
+#root{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+#scaleWrap{transform-origin:top center} /* auto-fit wrapper */
+
+.app{width:min(96vw,640px)}
+h1{margin:0 0 10px;font-size:20px}
+.card{background:var(--card);border:1px solid var(--edge);border-radius:14px;
+  box-shadow:0 18px 48px rgba(0,0,0,.55);padding:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.badge{background:#121820;border:1px solid #1c222a;border-radius:10px;padding:6px 10px;font-weight:800;color:#cfe6dd}
+select,button{background:#12161c;border:1px solid #26303a;color:#e8eef5;border-radius:10px;padding:8px 12px;cursor:pointer}
+button.primary{background:var(--accent);border:none;color:#062017;font-weight:900}
+button:disabled{opacity:.55;cursor:not-allowed}
+
+.sentence{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.token{background:#12161c;border:1px solid #26303a;border-radius:12px;padding:8px 12px;
+  user-select:none;cursor:pointer}
+.token.correct{border-color:#1f7f4a;background:rgba(34,197,94,.12)}
+.token.wrong{border-color:#7f2b2b;background:rgba(255,95,95,.12)}
+.meta{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-size:13px}
+.progress{height:8px;background:#141a20;border:1px solid #1f2730;border-radius:6px;overflow:hidden}
+.fill{height:100%;background:linear-gradient(90deg,#00ffa6,#2dd4bf)}
+.feedback{margin-top:8px;font-size:14px}
+.feedback.good{color:var(--good)} .feedback.bad{color:var(--bad)}
+.center{display:flex;justify-content:center;gap:10px;margin-top:12px}
+.small{font-size:12px;color:#9aabbc;text-align:center;margin-top:8px}
+hr{border:none;border-top:1px solid #1f2730;margin:12px 0}
+
+/* compact embed */
+.compact h1{font-size:16px;margin-bottom:6px}
+.compact .app{width:min(96vw,560px)}
+.compact .card{padding:12px}
+.compact .token{padding:7px 10px;font-size:14px}
+.compact .meta{font-size:12px}
+.compact .small{font-size:11px}
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="scaleWrap">
+    <div class="app" id="app">
+      <h1>Error Finder 🔍 — Grammar Proofreading</h1>
+
+      <div class="row">
+        <span class="badge">Questions</span>
+        <select id="qCount">
+          <option value="8">8</option>
+          <option value="10" selected>10</option>
+          <option value="15">15</option>
+        </select>
+        <span class="badge">Timer</span>
+        <select id="timerSel">
+          <option value="12">12s / Q</option>
+          <option value="15" selected>15s / Q</option>
+          <option value="20">20s / Q</option>
+        </select>
+        <button id="start" class="primary">Start</button>
+        <span class="badge" id="best">Best: —</span>
+      </div>
+
+      <div class="card" id="game" style="display:none">
+        <div class="sentence" id="sentence"></div>
+
+        <div class="meta">
+          <div>Q <span id="idx">1</span>/<span id="total">10</span> • Score: <b id="score">0</b></div>
+          <div class="progress" style="width:48%"><div class="fill" id="bar" style="width:100%"></div></div>
+        </div>
+
+        <div class="feedback" id="fb"></div>
+
+        <div class="center">
+          <button id="reveal">Reveal</button>
+          <button id="skip">Skip</button>
+          <button id="next" class="primary" disabled>Next</button>
+        </div>
+
+        <div class="small">Tip: Tap the wrong word. Keyboard: <b>R</b> reveal, <b>N</b> next. Notion-safe (no scroll).</div>
+      </div>
+
+      <div class="card" id="end" style="display:none">
+        <div style="font-size:18px;margin-bottom:8px">Session complete 🎉</div>
+        <div class="row">
+          <span class="badge">Score: <b id="finalScore">0</b></span>
+          <span class="badge">Best: <b id="finalBest">—</b></span>
+          <span class="badge">Accuracy: <b id="acc">0%</b></span>
+        </div>
+        <hr>
+        <div id="summary" class="small"></div>
+        <div class="center"><button id="again" class="primary">Play Again</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ----- Embed helpers: compact + auto-scale (no scroll) ----- */
+(function(){
+  const inIframe = (()=>{ try{ return window.self!==window.top }catch(e){ return true } })();
+  if(inIframe){ document.documentElement.classList.add('compact'); document.body.classList.add('compact'); }
+})();
+function fitScale(){
+  const app=document.getElementById('app'), wrap=document.getElementById('scaleWrap');
+  wrap.style.transform='scale(1)';
+  const h=app.getBoundingClientRect().height, wh=window.innerHeight;
+  wrap.style.transform='scale('+Math.min(1,(wh-8)/h)+')';
+}
+window.addEventListener('load',fitScale);
+window.addEventListener('resize',fitScale);
+
+/* ----------------- Error Finder core ----------------- */
+/* Each item:
+   s = sentence with a single wrong word,
+   w = wrong word (exact token in sentence),
+   f = fix (correct word),
+   e = explanation
+*/
+const BANK = [
+  {s:"She have a car.",               w:"have",     f:"has",       e:"Subject–verb agreement: She → has."},
+  {s:"I am living here since 2019.",  w:"since",    f:"since 2019 → have been living", e:"Use present perfect continuous with since."},
+  {s:"He suggested to leave early.",  w:"to",       f:"leaving",   e:"Suggest + gerund (suggest leaving)."},
+  {s:"We discussed about the plan.",  w:"about",    f:"(remove 'about')", e:"Discuss doesn’t take 'about' before object."},
+  {s:"There is many problems.",       w:"is",       f:"are",       e:"Plural noun → There are many problems."},
+  {s:"She did a mistake.",            w:"a",        f:"made",      e:"Collocation: make a mistake (not do)."},
+  {s:"He is married with a doctor.",  w:"with",     f:"to",        e:"Married to (a person)."},
+  {s:"We will discuss about it later.",w:"about",   f:"(remove 'about')", e:"Discuss + object; no 'about'."},
+  {s:"I prefer tea than coffee.",     w:"than",     f:"to",        e:"Prefer A to B."},
+  {s:"She didn’t went to school.",    w:"went",     f:"go",        e:"After didn’t → base form (go)."},
+  {s:"He is good in math.",           w:"in",       f:"at",        e:"Good at + noun/gerund."},
+  {s:"Each of the students are ready.",w:"are",     f:"is",        e:"Each … is (singular verb)."},
+  {s:"She insisted to pay the bill.", w:"to",       f:"on paying", e:"Insist on + gerund."},
+  {s:"I look forward to hear from you.",w:"hear",   f:"hearing",   e:"Look forward to + gerund."},
+  {s:"The movie which I saw yesterday was boring.", w:"which", f:"that/which (OK) → issue is 'saw'?", e:"Better: The movie that I saw… (this one is borderline; use 'that')."},
+  {s:"He is interested on music.",    w:"on",       f:"in",        e:"Interested in + noun/gerund."},
+  {s:"By this time next year, I will completed my degree.", w:"completed", f:"have completed", e:"Future perfect: will have + past participle."},
+  {s:"Neither of the answers are correct.", w:"are", f:"is",       e:"Neither … is (singular)."},
+  {s:"Open the light, please.",       w:"Open",     f:"Turn on",   e:"Collocation: turn on/off the light."},
+  {s:"She explained me the problem.", w:"me",       f:"to me",     e:"Explain something to someone."}
+];
+
+// --- state ---
+let session=[], idx=0, score=0, correct=0, totalQ=10, timePerQ=15, ticking=null, revealed=false;
+
+const $ = s => document.querySelector(s);
+const els = {
+  start: $('#start'), qCount: $('#qCount'), timerSel: $('#timerSel'), best: $('#best'),
+  game: $('#game'), end: $('#end'),
+  sentence: $('#sentence'), fb: $('#fb'),
+  idx: $('#idx'), total: $('#total'), score: $('#score'), bar: $('#bar'),
+  reveal: $('#reveal'), skip: $('#skip'), next: $('#next'),
+  finalScore: $('#finalScore'), finalBest: $('#finalBest'), acc: $('#acc'), summary: $('#summary'),
+  again: $('#again')
+};
+
+// best score
+const BEST_KEY='errfind_best';
+const loadBest = () => +localStorage.getItem(BEST_KEY) || null;
+const saveBest = x => localStorage.setItem(BEST_KEY, x);
+function setBest(){ const b=loadBest(); els.best.textContent='Best: '+(b?b:'—'); }
+setBest();
+
+els.start.onclick=()=>{
+  totalQ=+els.qCount.value; timePerQ=+els.timerSel.value;
+  session = shuffle(BANK.slice()).slice(0,totalQ);
+  idx=0; score=0; correct=0;
+  els.total.textContent=totalQ; els.score.textContent=score;
+  els.game.style.display='block'; els.end.style.display='none';
+  renderQ(); fitScale();
+};
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function wordsWithPunct(s){ return s.split(' '); } // simple tokenization for this dataset
+
+function renderQ(){
+  clearTick(); revealed=false; els.fb.textContent=''; els.fb.className='feedback';
+  els.next.disabled=true;
+  const q=session[idx];
+  els.idx.textContent=idx+1;
+
+  // build tokens
+  els.sentence.innerHTML='';
+  const toks = wordsWithPunct(q.s);
+  const wrongIndex = toks.findIndex(t => clean(t)===clean(q.w));
+  toks.forEach((t,i)=>{
+    const b=document.createElement('button');
+    b.className='token'; b.textContent=t;
+    b.onclick=()=>chooseWord(i, wrongIndex);
+    els.sentence.appendChild(b);
+  });
+
+  startTimer(); fitScale();
+}
+
+function clean(x){ return x.replace(/[.,!?;:]/g,'').toLowerCase(); }
+
+function chooseWord(i, wrongIndex){
+  if(revealed) return;
+  clearTick();
+  const buttons=[...els.sentence.children];
+  if(i===wrongIndex){
+    buttons[i].classList.add('correct');
+    const q=session[idx];
+    els.fb.innerHTML = `✅ Correct! <br>Fix: <b>${q.f}</b><br><span style="color:#9fb0c2">${q.e}</span>`;
+    els.fb.className='feedback good';
+    score+=10; correct++; els.score.textContent=score;
+  }else{
+    buttons[i].classList.add('wrong');
+    // show the right one
+    if(wrongIndex>=0) buttons[wrongIndex].classList.add('correct');
+    const q=session[idx];
+    els.fb.innerHTML = `❌ Wrong. Correct word: <b>${q.w}</b> → <b>${q.f}</b><br><span style="color:#9fb0c2">${q.e}</span>`;
+    els.fb.className='feedback bad';
+  }
+  revealed=true;
+  lockSentence();
+  els.next.disabled=false;
+  fitScale();
+}
+
+function lockSentence(){
+  [...els.sentence.children].forEach(b=> b.disabled=true);
+}
+
+function startTimer(){
+  els.bar.style.width='100%';
+  const start=Date.now();
+  function frame(){
+    const remain=Math.max(0, timePerQ - (Date.now()-start)/1000);
+    els.bar.style.width=(remain/timePerQ*100)+'%';
+    if(remain<=0){ timeUp(); } else { ticking=requestAnimationFrame(frame); }
+  }
+  ticking=requestAnimationFrame(frame);
+}
+function clearTick(){ if(ticking){ cancelAnimationFrame(ticking); ticking=null; } }
+function timeUp(){
+  clearTick();
+  const q=session[idx];
+  // auto reveal
+  const toks=[...els.sentence.children];
+  const wIdx = toks.findIndex(b=> clean(b.textContent)===clean(q.w) );
+  if(wIdx>=0){ toks[wIdx].classList.add('correct'); }
+  els.fb.innerHTML = `⏳ Time up! Correct: <b>${q.w}</b> → <b>${q.f}</b><br><span style="color:#9fb0c2">${q.e}</span>`;
+  els.fb.className='feedback bad';
+  revealed=true;
+  lockSentence();
+  els.next.disabled=false;
+  fitScale();
+}
+
+// buttons
+els.reveal.onclick=()=>{
+  if(revealed) return;
+  clearTick();
+  const q=session[idx];
+  const toks=[...els.sentence.children];
+  const wIdx = toks.findIndex(b=> clean(b.textContent)===clean(q.w) );
+  if(wIdx>=0){ toks[wIdx].classList.add('correct'); }
+  els.fb.innerHTML = `👉 Reveal: <b>${q.w}</b> → <b>${q.f}</b><br><span style="color:#9fb0c2">${q.e}</span>`;
+  els.fb.className='feedback bad';
+  revealed=true; lockSentence(); els.next.disabled=false; fitScale();
+};
+els.skip.onclick=()=>{
+  clearTick();
+  const q=session[idx];
+  els.fb.innerHTML = `↷ Skipped — Correct: <b>${q.w}</b> → <b>${q.f}</b>`;
+  els.fb.className='feedback bad';
+  revealed=true; lockSentence(); els.next.disabled=false; fitScale();
+};
+els.next.onclick=()=>{ idx++; if(idx>=session.length) endGame(); else renderQ(); };
+
+// keys: R reveal, N next
+window.addEventListener('keydown', (e)=>{
+  const k=e.key.toLowerCase();
+  if(els.game.style.display==='none') return;
+  if(k==='r' && !revealed) els.reveal.click();
+  if(k==='n' && !els.next.disabled) els.next.click();
+});
+
+function endGame(){
+  els.game.style.display='none'; els.end.style.display='block';
+  els.finalScore.textContent=score;
+  const acc=Math.round((correct/session.length)*100); els.acc.textContent=acc+'%';
+  const prev=loadBest(); if(!prev || score>prev) saveBest(score);
+  els.finalBest.textContent=loadBest();
+
+  // summary preview (first 6)
+  els.summary.innerHTML = session.slice(0,6).map((q,i)=>`Q${i+1}. ${q.s.replace(/[ ]+/g,' ')} → <b>${q.f}</b>`).join('<br>');
+  setBest(); fitScale();
+}
+els.again.onclick=()=>{ els.end.style.display='none'; els.start.click(); };
+</script>
+</body>
+</html>
