@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
+<title>Word Match — Vocabulary Builder (Multi-Mode)</title>
+<style>
+:root{
+  --bg:#191919; --card:#0f1216; --ink:#eaf2f7; --muted:#9fb0c2;
+  --accent:#00ffa6; --edge:#21262d; --good:#22c55e; --bad:#ff5f5f;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:Inter,system-ui,Segoe UI,Roboto;overflow:hidden} /* no page scroll */
+#root{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+#scaleWrap{transform-origin:top center} /* auto-fit wrapper */
+
+.app{width:min(96vw,720px)}
+h1{margin:0 0 10px;font-size:20px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.badge{background:#121820;border:1px solid #1c222a;border-radius:10px;padding:6px 10px;font-weight:800;color:#cfe6dd}
+button,select{background:#12161c;border:1px solid var(--edge);color:var(--ink);border-radius:10px;padding:8px 12px;cursor:pointer}
+button.primary{background:var(--accent);border:none;color:#052018;font-weight:900}
+.card{background:var(--card);border:1px solid var(--edge);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.55);padding:12px;margin-top:6px}
+
+.meta{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px;margin:8px 0}
+.progress{height:8px;background:#141a20;border:1px solid #1f2730;border-radius:6px;overflow:hidden}
+.fill{height:100%;background:linear-gradient(90deg,#00ffa6,#2dd4bf)}
+
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
+.tile{border:1px solid #26303a;background:#12161c;border-radius:12px;padding:10px;min-height:64px;
+  display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;
+  transition:transform .12s ease, border-color .12s ease, background .12s ease}
+.tile:hover{border-color:#34414f}
+.tile.on{outline:2px solid var(--accent);background:#0f1719}
+.tile.ok{border-color:#1f7f4a;background:rgba(34,197,94,.12)}
+.tile.no{border-color:#7f2b2b;background:rgba(255,95,95,.12)}
+.small{font-size:12px;color:#9aabbc;text-align:center;margin-top:6px}
+.center{display:flex;justify-content:center;gap:10px;margin-top:10px}
+
+/* compact embed mode */
+.compact h1{font-size:16px;margin-bottom:6px}
+.compact .app{width:min(96vw,600px)}
+.compact .grid{gap:8px}
+.compact .tile{min-height:56px;font-size:14px}
+.compact .card{padding:10px}
+.compact .row{gap:8px;margin:6px 0}
+.compact .meta{font-size:12px}
+.compact .small{font-size:11px}
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="scaleWrap">
+    <div class="app" id="app">
+      <h1>Word Match 🧠 — Vocabulary Builder</h1>
+
+      <div class="row">
+        <span class="badge">Mode</span>
+        <select id="mode">
+          <option value="normal">Normal</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+        <span class="badge" id="roundInfo">Round: 10 pairs • Time: 105s</span>
+        <button id="start" class="primary">Start</button>
+        <span class="badge" id="best">Best: —</span>
+      </div>
+
+      <div class="card" id="game" style="display:none">
+        <div class="meta">
+          <div>Pairs <span id="done">0</span>/<span id="total">10</span> • Score: <b id="score">0</b></div>
+          <div class="progress" style="width:48%"><div class="fill" id="bar" style="width:100%"></div></div>
+        </div>
+
+        <div class="grid" id="grid"></div>
+
+        <div class="center">
+          <button id="shuffle">Shuffle</button>
+          <button id="restart">Restart (R)</button>
+        </div>
+        <div class="small">Tap two cards to match <b>word ↔ meaning</b>. No arrow keys (Notion-safe).</div>
+      </div>
+
+      <div class="card" id="end" style="display:none">
+        <div style="font-size:18px;margin-bottom:8px">Round complete 🎉</div>
+        <div class="row">
+          <span class="badge">Score: <b id="finalScore">0</b></span>
+          <span class="badge">Best: <b id="finalBest">—</b></span>
+          <span class="badge">Pairs: <b id="finalPairs">0/10</b></span>
+          <span class="badge">Time Left: <b id="finalTime">0s</b></span>
+        </div>
+        <div class="center"><button id="again" class="primary">Play Again</button></div>
+        <div class="small">Tip: Try harder mode for advanced vocabulary 🔥</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* -------- Embed helpers: compact + auto scale (no scroll) -------- */
+(function(){
+  const inIframe=(()=>{try{return window.self!==window.top}catch(e){return true}})();
+  if(inIframe){ document.documentElement.classList.add('compact'); document.body.classList.add('compact'); }
+})();
+function fitScale(){
+  const app=document.getElementById('app'), wrap=document.getElementById('scaleWrap');
+  wrap.style.transform='scale(1)';
+  const h=app.getBoundingClientRect().height, wh=window.innerHeight;
+  wrap.style.transform='scale('+Math.min(1,(wh-8)/h)+')';
+}
+window.addEventListener('load',fitScale);
+window.addEventListener('resize',fitScale);
+
+/* ----------------- DATA (Word Banks) ----------------- */
+const BANK = {
+  normal: [
+    ["Happy","Joyful"],["Big","Large"],["Fast","Quick"],["Easy","Simple"],["Smart","Clever"],
+    ["Start","Begin"],["End","Finish"],["Rich","Wealthy"],["Help","Assist"],["Ask","Inquire"],
+    ["Cold","Chilly"],["Funny","Humorous"],["Afraid","Scared"],["Tidy","Neat"],["Quiet","Silent"]
+  ],
+  medium: [
+    ["Angry","Furious"],["Calm","Peaceful"],["Bright","Luminous"],["Lazy","Idle"],["Brave","Courageous"],
+    ["Think","Ponder"],["Improve","Enhance"],["Reduce","Decrease"],["Rare","Scarce"],["Fake","Counterfeit"],
+    ["Reject","Decline"],["Huge","Enormous"],["Change","Alter"],["Help","Aid"],["Hold back","Restrain"]
+  ],
+  hard: [
+    ["Abundant","Plentiful"],["Candid","Frank"],["Diligent","Industrious"],["Eloquent","Articulate"],["Impartial","Neutral"],
+    ["Vigilant","Watchful"],["Benevolent","Kind"],["Frugal","Thrifty"],["Transient","Temporary"],["Meticulous","Precise"],
+    ["Ambiguous","Unclear"],["Novel","Original"],["Obsolete","Outdated"],["Perilous","Dangerous"],["Ubiquitous","Widespread"]
+  ]
+};
+
+/* --------- GAME STATE --------- */
+const ui = {
+  mode: qs('#mode'), roundInfo: qs('#roundInfo'), best: qs('#best'),
+  start: qs('#start'), game: qs('#game'), end: qs('#end'),
+  grid: qs('#grid'),
+  done: qs('#done'), total: qs('#total'), score: qs('#score'), bar: qs('#bar'),
+  restart: qs('#restart'), shuffle: qs('#shuffle'),
+  finalScore: qs('#finalScore'), finalBest: qs('#finalBest'), finalPairs: qs('#finalPairs'), finalTime: qs('#finalTime'),
+  again: qs('#again')
+};
+function qs(s){return document.querySelector(s);}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+const MODE_TIME = { normal:120, medium:105, hard:90 }; // overall round time (best choice for flow)
+const TOTAL_PAIRS = 10;
+
+let deck=[], // [{id, text, side:'w'|'m'}...]
+    pairs=0, score=0, ticking=null, timeLeft=0,
+    first=null, lock=false, mode='medium', startTs=0;
+
+/* --------- BEST SCORE (per mode) --------- */
+function bestKey(){ return 'wm_best_'+mode; }
+const loadBest=()=> +localStorage.getItem(bestKey()) || null;
+const saveBest=x=> localStorage.setItem(bestKey(), x);
+function setBestLabel(){ const b=loadBest(); ui.best.textContent = 'Best: ' + (b?b:'—'); }
+function updateRoundInfo(){ ui.roundInfo.textContent = `Round: ${TOTAL_PAIRS} pairs • Time: ${MODE_TIME[mode]}s`; }
+
+/* --------- START --------- */
+ui.start.onclick = () => {
+  mode = ui.mode.value;
+  setBestLabel(); updateRoundInfo();
+
+  // pick 10 pairs
+  const pool = shuffle(BANK[mode].slice()).slice(0, TOTAL_PAIRS);
+  // build 20 cards (word+meaning) with same id
+  let id=0; deck=[];
+  for(const [w,m] of pool){
+    deck.push({id, text:w, side:'w'});
+    deck.push({id, text:m, side:'m'});
+    id++;
+  }
+  shuffle(deck);
+
+  // reset state
+  pairs=0; score=0; timeLeft = MODE_TIME[mode]; first=null; lock=false;
+  ui.done.textContent = pairs; ui.total.textContent = TOTAL_PAIRS; ui.score.textContent = score;
+
+  // draw grid
+  drawGrid();
+
+  // show game
+  ui.game.style.display='block'; ui.end.style.display='none';
+  startTimer(); fitScale();
+};
+
+function drawGrid(){
+  ui.grid.innerHTML='';
+  deck.forEach((card,i)=>{
+    const btn=document.createElement('button');
+    btn.className='tile';
+    btn.textContent = card.text;
+    btn.dataset.i = i;
+    btn.onclick = ()=> pick(i, btn);
+    ui.grid.appendChild(btn);
+  });
+}
+
+/* --------- TIMER (overall) --------- */
+function startTimer(){
+  clearTick();
+  const endTs = Date.now() + timeLeft*1000;
+  function frame(){
+    const now = Date.now();
+    timeLeft = Math.max(0, Math.ceil((endTs - now)/1000));
+    const total = MODE_TIME[mode];
+    ui.bar.style.width = (timeLeft/total*100) + '%';
+    if(timeLeft<=0){ finish(); } else { ticking = requestAnimationFrame(frame); }
+  }
+  ticking = requestAnimationFrame(frame);
+}
+function clearTick(){ if(ticking){ cancelAnimationFrame(ticking); ticking=null; } }
+
+/* --------- MATCH LOGIC --------- */
+function pick(i, btn){
+  if(lock) return;
+  if(first && i===first.i) return; // same tile
+
+  btn.classList.add('on');
+
+  if(!first){
+    first = { i, id: deck[i].id, el: btn };
+    return;
+  }
+  // second pick
+  const a = first, b = { i, id: deck[i].id, el: btn };
+  lock = true;
+
+  if(a.id === b.id){
+    // correct pair
+    a.el.classList.remove('on'); b.el.classList.remove('on');
+    a.el.classList.add('ok'); b.el.classList.add('ok');
+    a.el.disabled = b.el.disabled = true;
+    pairs++; score += 10;
+    ui.done.textContent = pairs; ui.score.textContent = score;
+    lock = false; first = null;
+
+    // win if all matched
+    if(pairs>=TOTAL_PAIRS){ finish(); }
+  }else{
+    // wrong
+    a.el.classList.add('no'); b.el.classList.add('no');
+    setTimeout(()=>{
+      a.el.classList.remove('on','no'); b.el.classList.remove('on','no');
+      lock=false; first=null;
+    }, 650);
+  }
+}
+
+/* --------- FINISH / RESTART --------- */
+function finish(){
+  clearTick();
+  ui.game.style.display='none';
+  ui.end.style.display='block';
+
+  ui.finalScore.textContent = score;
+  ui.finalPairs.textContent = `${pairs}/${TOTAL_PAIRS}`;
+  ui.finalTime.textContent = `${timeLeft}s`;
+
+  const prev = loadBest();
+  if(!prev || score>prev) saveBest(score);
+  ui.finalBest.textContent = loadBest();
+
+  fitScale();
+}
+ui.again.onclick = ()=>{ ui.end.style.display='none'; ui.start.click(); };
+ui.restart.onclick = ()=>{ ui.start.click(); };
+ui.shuffle.onclick = ()=>{
+  if(lock) return;
+  shuffle(deck); drawGrid();
+};
+
+// hotkey: R = restart
+window.addEventListener('keydown', e=>{
+  if(e.key.toLowerCase()==='r'){ ui.restart.click(); }
+});
+</script>
+</body>
+</html>
