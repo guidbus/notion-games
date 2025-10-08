@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
+<title>Sentence Builder — No-Scroll Embed</title>
+<style>
+:root{
+  --bg:#191919; --ink:#eaf2f7; --muted:#9fb0c2; --panel:#0f1216; --edge:#1c232b;
+  --accent:#00ffa6; --good:#22c55e; --bad:#ff5f5f; --chip:#141a1d; --chipEdge:#24303a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto;overflow:hidden} /* <- NO SCROLL */
+#root{position:relative; width:100vw; height:100vh; display:flex; align-items:center; justify-content:center}
+#scaleWrap{transform-origin: top center;} /* auto scale container */
+
+.app{width:min(96vw,760px)}
+h1{margin:0 0 8px;font-size:20px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.badge{background:#111720;border:1px solid #1b2230;border-radius:10px;padding:6px 10px;font-weight:800;color:#cfe6dd}
+select,button{background:#12161c;border:1px solid var(--edge);color:var(--ink);border-radius:10px;padding:8px 12px;cursor:pointer}
+button.primary{background:var(--accent);border:none;color:#052018;font-weight:900}
+button:disabled{opacity:.55;cursor:not-allowed}
+.card{background:var(--panel);border:1px solid var(--edge);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.55);padding:12px;margin-top:6px}
+.board{display:flex;gap:8px;flex-wrap:wrap;min-height:68px;padding:8px;background:#0b0f14;border:1px dashed #24303a;border-radius:12px}
+.token{user-select:none;background:var(--chip);border:1px solid var(--chipEdge);border-radius:12px;padding:9px 11px;display:inline-flex;align-items:center;font-weight:700}
+.token[data-sel="1"]{outline:2px solid var(--accent);background:#0d1518}
+.token.correct{border-color:#1e7f4a;background:rgba(34,197,94,.12)}
+.token.wrong{border-color:#7f2b2b;background:rgba(255,95,95,.12)}
+.token[draggable="true"]{cursor:grab}
+.meta{display:flex;justify-content:space-between;align-items:center;margin-top:8px;color:var(--muted);font-size:13px}
+.progress{height:8px;background:#11161c;border:1px solid #1f2730;border-radius:6px;overflow:hidden}
+.fill{height:100%;background:linear-gradient(90deg,#00ffa6,#2dd4bf)}
+.feedback{margin-top:8px;font-size:14px}
+.feedback.good{color:var(--good)} .feedback.bad{color:var(--bad)}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.kb{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#9eb0c1}
+.kbd{display:inline-block;min-width:18px;height:18px;border-radius:6px;background:#0f141a;border:1px solid #1f2630;
+  text-align:center;line-height:18px;font-weight:800;color:#cdd7e3}
+.small{font-size:12px;color:#8ea1b4;margin-top:6px}
+hr{border:none;border-top:1px solid #1f2730;margin:10px 0}
+
+/* ---------- Compact mode for Notion/iframe ---------- */
+.compact h1{font-size:16px;margin-bottom:6px}
+.compact .app{width:min(96vw,640px)}
+.compact .row{gap:6px;margin:4px 0}
+.compact .card{padding:10px}
+.compact .board{gap:6px;min-height:56px}
+.compact .token{padding:7px 9px;font-size:14px}
+.compact .badge, .compact select, .compact button{padding:6px 9px;font-size:14px}
+.compact .meta{font-size:12px}
+.compact .kb, .compact .small{font-size:11px}
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="scaleWrap">
+    <div class="app" id="app">
+      <h1>Sentence Builder — English Grammar 🧩</h1>
+
+      <div class="row">
+        <span class="badge">Mode</span>
+        <select id="qCount"><option value="8">8 Qs</option><option value="10" selected>10 Qs</option><option value="15">15 Qs</option></select>
+        <span class="badge">Timer</span>
+        <select id="timerSel"><option value="12">12s / Q</option><option value="15" selected>15s / Q</option><option value="20">20s / Q</option></select>
+        <button id="start" class="primary">Start</button>
+        <span class="badge" id="best">Best: —</span>
+      </div>
+
+      <div class="card" id="game" style="display:none">
+        <div class="board" id="board" aria-label="Reorder the words to form a correct sentence"></div>
+
+        <div class="meta">
+          <div>Q <span id="idx">1</span>/<span id="total">10</span> • Score: <b id="score">0</b></div>
+          <div class="progress" style="width:50%"><div id="bar" class="fill" style="width:100%"></div></div>
+        </div>
+
+        <div class="feedback" id="fb"></div>
+
+        <div class="controls">
+          <button id="hint">Hint</button>
+          <button id="check" class="primary">Check</button>
+          <button id="skip">Skip</button>
+          <button id="next" disabled>Next</button>
+        </div>
+
+        <div class="kb">
+          Tap two words to <b>swap</b> • or drag & drop • <span class="kbd">H</span> hint <span class="kbd">C</span> check <span class="kbd">N</span> next
+        </div>
+        <div class="small">No arrow keys used (Notion-safe). Mobile friendly.</div>
+      </div>
+
+      <div class="card" id="end" style="display:none">
+        <div style="font-size:18px;margin-bottom:6px">Session complete 🎉</div>
+        <div class="row">
+          <span class="badge">Score: <b id="finalScore">0</b></span>
+          <span class="badge">Best: <b id="finalBest">—</b></span>
+          <span class="badge">Accuracy: <b id="acc">0%</b></span>
+        </div>
+        <hr>
+        <div id="summary" class="small"></div>
+        <div class="row"><button id="again" class="primary">Play Again</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== No-scroll embed helpers ===== */
+// 1) Compact mode if inside iframe (Notion)
+(function(){
+  const inIframe = (function(){ try{ return window.self !== window.top; } catch(e){ return true; } })();
+  if(inIframe){ document.documentElement.classList.add('compact'); document.body.classList.add('compact'); }
+})();
+// 2) Auto-fit scale to prevent overflow (no scrollbar)
+function fitScale(){
+  const app = document.getElementById('app');
+  const wrap = document.getElementById('scaleWrap');
+  wrap.style.transform = 'scale(1)';
+  const h = app.getBoundingClientRect().height;
+  const wh = window.innerHeight;
+  // leave small margin
+  const scale = Math.min(1, (wh-8) / h);
+  wrap.style.transform = 'scale(' + scale + ')';
+}
+window.addEventListener('load', fitScale);
+window.addEventListener('resize', fitScale);
+
+/* ===== Sentence Builder core (same gameplay) ===== */
+const BANK = [
+  { s:"I love learning English every day.", hint:"S V O + time", tokens:["I","love","learning","English","every","day."] },
+  { s:"She is an amazing teacher.", hint:"be + article + adj + noun", tokens:["She","is","an","amazing","teacher."] },
+  { s:"We will meet at the library tomorrow.", hint:"Future + place + time", tokens:["We","will","meet","at","the","library","tomorrow."] },
+  { s:"He has been studying for three hours.", hint:"Present perfect continuous", tokens:["He","has","been","studying","for","three","hours."] },
+  { s:"Please turn off the lights before you leave.", hint:"Imperative + phrasal verb", tokens:["Please","turn","off","the","lights","before","you","leave."] },
+  { s:"If it rains, we will stay at home.", hint:"Conditional type 1", tokens:["If","it","rains,","we","will","stay","at","home."] },
+  { s:"Although she was tired, she finished her homework.", hint:"Although-clause + main clause", tokens:["Although","she","was","tired,","she","finished","her","homework."] },
+  { s:"By this time next year, I will have graduated.", hint:"Future perfect", tokens:["By","this","time","next","year,","I","will","have","graduated."] },
+  { s:"The movie that we watched last night was excellent.", hint:"Relative clause (that)", tokens:["The","movie","that","we","watched","last","night","was","excellent."] },
+  { s:"There are many reasons why reading is important.", hint:"There are + why-clause", tokens:["There","are","many","reasons","why","reading","is","important."] },
+  { s:"No sooner had I sat down than the phone rang.", hint:"No sooner... than...", tokens:["No","sooner","had","I","sat","down","than","the","phone","rang."] },
+  { s:"Learning a new language takes time and practice.", hint:"Gerund as subject", tokens:["Learning","a","new","language","takes","time","and","practice."] },
+];
+
+const BEST_KEY='sb_best_embed';
+const ui = {
+  start: qs('#start'), qCount: qs('#qCount'), timerSel: qs('#timerSel'), best: qs('#best'),
+  game: qs('#game'), end: qs('#end'),
+  board: qs('#board'), fb: qs('#fb'),
+  idx: qs('#idx'), total: qs('#total'), score: qs('#score'), bar: qs('#bar'),
+  hint: qs('#hint'), check: qs('#check'), skip: qs('#skip'), next: qs('#next'),
+  finalScore: qs('#finalScore'), finalBest: qs('#finalBest'), acc: qs('#acc'), summary: qs('#summary'),
+  again: qs('#again')
+};
+
+let session=[], qIdx=0, score=0, correct=0, totalQ=10, tPerQ=15;
+let ticking=null, selected=-1;
+
+function qs(s){return document.querySelector(s);}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function arrEq(a,b){ if(a.length!==b.length) return false; for(let i=0;i<a.length;i++) if(a[i]!==b[i]) return false; return true; }
+function loadBest(){ const v=localStorage.getItem(BEST_KEY); return v?+v:null; }
+function saveBest(x){ localStorage.setItem(BEST_KEY, String(x)); }
+function setBestLabel(){ const b=loadBest(); ui.best.textContent='Best: '+(b==null?'—':b); }
+setBestLabel();
+
+ui.start.addEventListener('click', ()=>{
+  totalQ=+ui.qCount.value; tPerQ=+ui.timerSel.value;
+  session=buildSession(totalQ); qIdx=0; score=0; correct=0;
+  ui.total.textContent=totalQ; ui.score.textContent=score;
+  ui.game.style.display='block'; ui.end.style.display='none';
+  renderQ(); fitScale();
+});
+
+function buildSession(n){
+  const pool=shuffle(clone(BANK)).slice(0,n);
+  return pool.map(q=>{
+    let cur=shuffle(q.tokens.slice()); let tries=0;
+    while(arrEq(cur,q.tokens)&&tries<4){ cur=shuffle(cur); tries++; }
+    return {tokens:q.tokens, hint:q.hint, current:cur};
+  });
+}
+
+function renderQ(){
+  clearTick(); selected=-1; ui.fb.textContent=''; ui.fb.className='feedback';
+  ui.next.disabled=true; ui.idx.textContent=qIdx+1;
+  const q=session[qIdx]; ui.board.innerHTML='';
+  q.current.forEach((w,i)=>{
+    const t=document.createElement('button'); t.className='token'; t.textContent=w; t.dataset.i=i; t.draggable=true;
+    t.onclick=()=>{ if(selected===-1){ selected=i; t.dataset.sel="1"; }
+      else if(selected===i){ selected=-1; t.removeAttribute('data-sel'); }
+      else{ swap(q.current, selected, i); selected=-1; renderTokens(q); } };
+    t.addEventListener('dragstart',ev=>{ ev.dataTransfer.setData('text/plain', String(i)); });
+    t.addEventListener('dragover',ev=>ev.preventDefault());
+    t.addEventListener('drop',ev=>{ ev.preventDefault(); const from=+ev.dataTransfer.getData('text/plain'); const to=+t.dataset.i;
+      if(from!==to){ swap(q.current,from,to); renderTokens(q); }});
+    ui.board.appendChild(t);
+  });
+  startTimer(); fitScale();
+}
+function renderTokens(q){
+  ui.board.innerHTML='';
+  q.current.forEach((w,i)=>{
+    const t=document.createElement('button'); t.className='token'; t.textContent=w; t.dataset.i=i; t.draggable=true;
+    t.onclick=()=>{ if(selected===-1){ selected=i; t.dataset.sel="1"; }
+      else if(selected===i){ selected=-1; t.removeAttribute('data-sel'); }
+      else{ swap(q.current, selected, i); selected=-1; renderTokens(q); } };
+    t.addEventListener('dragstart',ev=>{ ev.dataTransfer.setData('text/plain', String(i)); });
+    t.addEventListener('dragover',ev=>ev.preventDefault());
+    t.addEventListener('drop',ev=>{ ev.preventDefault(); const from=+ev.dataTransfer.getData('text/plain'); const to=+t.dataset.i;
+      if(from!==to){ swap(q.current,from,to); renderTokens(q); }});
+    ui.board.appendChild(t);
+  });
+  fitScale();
+}
+function swap(a,i,j){ const t=a[i]; a[i]=a[j]; a[j]=t; }
+
+function startTimer(){
+  const total=tPerQ*1000; const start=performance.now();
+  function frame(now){
+    const dt=now-start; const pct=Math.max(0,100-(dt/total)*100);
+    ui.bar.style.width=pct+'%';
+    if(dt>=total) timeUp(); else ticking=requestAnimationFrame(frame);
+  }
+  ticking=requestAnimationFrame(frame);
+}
+function clearTick(){ if(ticking){ cancelAnimationFrame(ticking); ticking=null; } }
+function timeUp(){
+  clearTick(); lockBoard();
+  const q=session[qIdx]; ui.fb.textContent="⏳ Time up! Correct: "+q.tokens.join(' ');
+  ui.fb.className='feedback bad'; ui.next.disabled=false; fitScale();
+}
+function lockBoard(){ [...ui.board.children].forEach(b=>{ b.disabled=true; b.draggable=false; }); }
+
+ui.hint.addEventListener('click', ()=>{
+  const q=session[qIdx];
+  for(let i=0;i<q.tokens.length;i++){
+    if(q.current[i]!==q.tokens[i]){
+      const need=q.tokens[i]; const from=q.current.indexOf(need);
+      if(from>=0){ q.current.splice(from,1); q.current.splice(i,0,need); }
+      renderTokens(q); pulse(ui.board); break;
+    }
+  }
+});
+function pulse(el){ el.animate([{transform:'scale(1)'},{transform:'scale(1.02)'},{transform:'scale(1)'}],{duration:200}); }
+
+ui.check.addEventListener('click', ()=>{
+  clearTick();
+  const q=session[qIdx]; const ok=arrEq(q.current,q.tokens);
+  highlight(q, ok);
+  if(ok){ ui.fb.textContent="✅ Perfect!"; ui.fb.className='feedback good'; score+=10; correct+=1; }
+  else { ui.fb.textContent="❌ Not correct — try hint or skip."; ui.fb.className='feedback bad'; }
+  ui.score.textContent=score; ui.next.disabled=false; lockBoard(); fitScale();
+});
+function highlight(q,ok){
+  [...ui.board.children].forEach((b,i)=>{ b.classList.remove('correct','wrong');
+    if(q.current[i]===q.tokens[i]) b.classList.add('correct'); else if(!ok) b.classList.add('wrong'); });
+}
+
+ui.skip.addEventListener('click', ()=>{
+  clearTick(); lockBoard();
+  const q=session[qIdx]; ui.fb.textContent="↷ Skipped — Correct: "+q.tokens.join(' ');
+  ui.fb.className='feedback bad'; ui.next.disabled=false; fitScale();
+});
+
+ui.next.addEventListener('click', ()=>{
+  qIdx++; if(qIdx>=session.length){ endGame(); } else { renderQ(); }
+});
+
+window.addEventListener('keydown', e=>{
+  const k=e.key.toLowerCase();
+  if(ui.game.style.display==='none') return;
+  if(k==='h') ui.hint.click();
+  if(k==='c') ui.check.click();
+  if(k==='n' && !ui.next.disabled) ui.next.click();
+});
+
+function endGame(){
+  ui.game.style.display='none'; ui.end.style.display='block';
+  ui.finalScore.textContent=score;
+  const acc=Math.round((correct/session.length)*100); ui.acc.textContent=acc+'%';
+  const prev=loadBest(); if(prev==null||score>prev) saveBest(score);
+  ui.finalBest.textContent=loadBest();
+  const lines=session.slice(0,Math.min(5,session.length)).map((q,i)=>`Q${i+1}. ${q.tokens.join(' ')}`);
+  ui.summary.innerHTML=lines.join('<br>');
+  setBestLabel(); fitScale();
+}
+
+ui.again.addEventListener('click', ()=>{ ui.end.style.display='none'; ui.start.click(); });
+</script>
+</body>
+</html>
