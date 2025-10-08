@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
+<title>Synonym Sprint – Vocabulary Game</title>
+<style>
+:root{--bg:#191919;--card:#0f1216;--ink:#eaf2f7;--muted:#9fb0c2;
+--accent:#00ffa6;--good:#22c55e;--bad:#ff5f5f;--edge:#21262d;}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+font-family:Inter,system-ui,Segoe UI,Roboto;overflow:hidden}
+#root{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+#scaleWrap{transform-origin:top center}
+.app{width:min(96vw,640px)}
+h1{margin:0 0 10px;font-size:20px}
+.card{background:var(--card);border:1px solid var(--edge);border-radius:14px;
+box-shadow:0 18px 48px rgba(0,0,0,.55);padding:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.badge{background:#121820;border:1px solid #1c222a;border-radius:10px;
+padding:6px 10px;font-weight:800;color:#cfe6dd}
+select,button{background:#12161c;border:1px solid #26303a;color:#e8eef5;
+border-radius:10px;padding:8px 12px;cursor:pointer}
+button.primary{background:var(--accent);border:none;color:#052018;font-weight:900}
+button:disabled{opacity:.55;cursor:not-allowed}
+.question{font-size:20px;margin:10px 0}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.opt{border:1px solid #26303a;background:#12161c;border-radius:12px;padding:10px 12px;text-align:left}
+.opt.kb::before{content:attr(data-kb);display:inline-block;width:20px;height:20px;
+border-radius:6px;background:#0d1116;border:1px solid #1e252c;color:#cdd7e3;
+font-weight:800;line-height:20px;text-align:center;margin-right:8px}
+.opt:hover{border-color:#34414f}
+.opt.correct{border-color:#1f7f4a;background:rgba(34,197,94,.12)}
+.opt.wrong{border-color:#7f2b2b;background:rgba(255,95,95,.12)}
+.meta{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-size:13px}
+.progress{height:8px;background:#141a20;border:1px solid #1f2730;border-radius:6px;overflow:hidden}
+.fill{height:100%;background:linear-gradient(90deg,#00ffa6,#2dd4bf)}
+.feedback{margin-top:8px;font-size:14px}
+.feedback.good{color:var(--good)} .feedback.bad{color:var(--bad)}
+.center{display:flex;justify-content:center;gap:10px;margin-top:12px}
+.small{font-size:12px;color:#9aabbc;text-align:center;margin-top:8px}
+hr{border:none;border-top:1px solid #1f2730;margin:12px 0}
+.compact h1{font-size:16px;margin-bottom:6px}
+.compact .app{width:min(96vw,560px)}
+.compact .card{padding:12px}
+.compact .question{font-size:17px}
+.compact .opt{padding:8px 10px;font-size:14px}
+.compact .meta{font-size:12px}
+.compact .small{font-size:11px}
+</style>
+</head>
+<body>
+<div id="root">
+ <div id="scaleWrap">
+  <div class="app" id="app">
+    <h1>Synonym Sprint 🏃‍♂️</h1>
+    <div class="row">
+      <span class="badge">Mode</span>
+      <select id="mode">
+        <option value="normal">Normal</option>
+        <option value="medium" selected>Medium</option>
+        <option value="hard">Hard</option>
+      </select>
+      <span class="badge">Timer</span>
+      <select id="timerSel">
+        <option value="12">12s / Q</option>
+        <option value="15" selected>15s / Q</option>
+        <option value="18">18s / Q</option>
+      </select>
+      <button id="start" class="primary">Start</button>
+      <span class="badge" id="best">Best: —</span>
+    </div>
+
+    <div class="card" id="game" style="display:none">
+      <div class="question" id="qWord"></div>
+      <div class="opts" id="opts"></div>
+      <div class="meta">
+        <div>Q <span id="idx">1</span>/<span id="total">10</span> • Score: <b id="score">0</b></div>
+        <div class="progress" style="width:48%"><div class="fill" id="bar" style="width:100%"></div></div>
+      </div>
+      <div class="feedback" id="fb"></div>
+      <div class="center"><button id="skip">Skip</button><button id="next" disabled>Next</button></div>
+      <div class="small">Press keys 1–4 to choose. Notion-safe.</div>
+    </div>
+
+    <div class="card" id="end" style="display:none">
+      <div style="font-size:18px;margin-bottom:8px">Session complete 🎉</div>
+      <div class="row">
+        <span class="badge">Score: <b id="finalScore">0</b></span>
+        <span class="badge">Best: <b id="finalBest">—</b></span>
+        <span class="badge">Accuracy: <b id="acc">0%</b></span>
+      </div><hr>
+      <div id="summary" class="small"></div>
+      <div class="center"><button id="again" class="primary">Play Again</button></div>
+    </div>
+  </div>
+ </div>
+</div>
+
+<script>
+(function(){
+ const inIframe=(()=>{try{return window.self!==window.top}catch(e){return true}})();
+ if(inIframe){document.documentElement.classList.add('compact');document.body.classList.add('compact');}
+})();
+function fitScale(){
+ const app=document.getElementById('app'),wrap=document.getElementById('scaleWrap');
+ wrap.style.transform='scale(1)';
+ const h=app.getBoundingClientRect().height,wh=window.innerHeight;
+ wrap.style.transform='scale('+Math.min(1,(wh-8)/h)+')';
+}
+window.addEventListener('load',fitScale);
+window.addEventListener('resize',fitScale);
+
+const WORDS={
+ normal:[
+  {w:"Happy",s:"Joyful",o:["Sad","Angry","Sleepy"]},
+  {w:"Big",s:"Large",o:["Small","Tiny","Thin"]},
+  {w:"Fast",s:"Quick",o:["Slow","Lazy","Weak"]},
+  {w:"Beautiful",s:"Pretty",o:["Ugly","Bad","Dirty"]},
+  {w:"Easy",s:"Simple",o:["Hard","Difficult","Complex"]},
+  {w:"Cold",s:"Chilly",o:["Hot","Warm","Dry"]},
+  {w:"Smart",s:"Clever",o:["Dumb","Lazy","Slow"]},
+  {w:"Funny",s:"Humorous",o:["Serious","Sad","Plain"]}
+ ],
+ medium:[
+  {w:"Brave",s:"Courageous",o:["Cowardly","Afraid","Weak"]},
+  {w:"Calm",s:"Peaceful",o:["Nervous","Wild","Rough"]},
+  {w:"Bright",s:"Luminous",o:["Dim","Dark","Faint"]},
+  {w:"Angry",s:"Furious",o:["Happy","Glad","Cheerful"]},
+  {w:"Rich",s:"Wealthy",o:["Poor","Needy","Broke"]},
+  {w:"Begin",s:"Commence",o:["End","Stop","Finish"]},
+  {w:"Help",s:"Assist",o:["Harm","Ignore","Block"]},
+  {w:"Ask",s:"Inquire",o:["Answer","Reply","Explain"]}
+ ],
+ hard:[
+  {w:"Abundant",s:"Plentiful",o:["Scarce","Rare","Little"]},
+  {w:"Candid",s:"Frank",o:["Dishonest","Secretive","Fake"]},
+  {w:"Diligent",s:"Industrious",o:["Lazy","Idle","Neglectful"]},
+  {w:"Eloquent",s:"Articulate",o:["Silent","Mute","Unclear"]},
+  {w:"Impartial",s:"Neutral",o:["Biased","Partial","Prejudiced"]},
+  {w:"Vigilant",s:"Watchful",o:["Careless","Neglectful","Blind"]},
+  {w:"Benevolent",s:"Kind",o:["Cruel","Harsh","Mean"]},
+  {w:"Frugal",s:"Thrifty",o:["Wasteful","Extravagant","Lavish"]}
+ ]};
+
+let mode="medium",session=[],idx=0,score=0,correct=0,totalQ=8,timePerQ=15,ticking=null;
+const q=s=>document.querySelector(s);
+const els={mode:q('#mode'),timerSel:q('#timerSel'),best:q('#best'),
+start:q('#start'),game:q('#game'),end:q('#end'),
+qWord:q('#qWord'),opts:q('#opts'),idx:q('#idx'),total:q('#total'),
+score:q('#score'),bar:q('#bar'),fb:q('#fb'),
+skip:q('#skip'),next:q('#next'),finalScore:q('#finalScore'),
+finalBest:q('#finalBest'),acc:q('#acc'),summary:q('#summary'),again:q('#again')};
+
+const BEST_KEY='synsprint_best';
+const loadBest=()=>+localStorage.getItem(BEST_KEY)||null;
+const saveBest=x=>localStorage.setItem(BEST_KEY,x);
+function setBest(){const b=loadBest();els.best.textContent='Best: '+(b?b:'—');}
+setBest();
+
+els.start.onclick=()=>{
+ mode=els.mode.value;timePerQ=+els.timerSel.value;
+ session=shuffle([...WORDS[mode]]).slice(0,8);
+ idx=score=correct=0;els.total.textContent=session.length;els.score.textContent=score;
+ els.game.style.display='block';els.end.style.display='none';
+ renderQ();fitScale();
+};
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function renderQ(){
+ clearTick();const q=session[idx];els.idx.textContent=idx+1;
+ els.qWord.textContent='Word: '+q.w;els.opts.innerHTML='';els.fb.textContent='';els.next.disabled=true;
+ const choices=shuffle([q.s,...q.o]).slice(0,4);
+ choices.forEach((c,i)=>{const b=document.createElement('button');b.className='opt kb';b.dataset.kb=i+1;b.innerHTML='<b>'+c+'</b>';
+ b.onclick=()=>choose(c,b,q.s);els.opts.appendChild(b);});
+ tick();fitScale();
+}
+function tick(){
+ els.bar.style.width='100%';const start=Date.now();
+ function frame(){const r=Math.max(0,timePerQ-(Date.now()-start)/1000);els.bar.style.width=(r/timePerQ*100)+'%';
+ if(r<=0)timeUp();else ticking=requestAnimationFrame(frame);}
+ ticking=requestAnimationFrame(frame);
+}
+function clearTick(){if(ticking)cancelAnimationFrame(ticking),ticking=null;}
+function lock(){[...els.opts.children].forEach(b=>b.disabled=true);}
+function timeUp(){clearTick();lock();els.fb.textContent='⏳ Time up! Correct: '+session[idx].s;
+ els.fb.className='feedback bad';els.next.disabled=false;fitScale();}
+function choose(val,btn,ans){
+ clearTick();lock();
+ if(val===ans){btn.classList.add('correct');els.fb.textContent='✅ Correct!';els.fb.className='feedback good';score+=10;correct++;}
+ else{btn.classList.add('wrong');[...els.opts.children].forEach(b=>{if(b.textContent.trim()===ans)b.classList.add('correct');});
+ els.fb.textContent='❌ Wrong — Correct: '+ans;els.fb.className='feedback bad';}
+ els.score.textContent=score;els.next.disabled=false;fitScale();
+}
+els.next.onclick=()=>{idx++;idx>=session.length?end():renderQ();};
+els.skip.onclick=()=>{clearTick();lock();els.fb.textContent='↷ Skipped — Correct: '+session[idx].s;els.fb.className='feedback bad';els.next.disabled=false;fitScale();}
+window.addEventListener('keydown',e=>{
+ const k=e.key;if(els.game.style.display==='none')return;
+ if(k>='1'&&k<='4'){const i=+k-1;const b=els.opts.children[i];if(b&&!b.disabled)b.click();}
+ if(k==='n'&&!els.next.disabled)els.next.click();
+});
+function end(){
+ els.game.style.display='none';els.end.style.display='block';
+ els.finalScore.textContent=score;
+ const acc=Math.round(correct/session.length*100);els.acc.textContent=acc+'%';
+ const prev=loadBest();if(!prev||score>prev)saveBest(score);
+ els.finalBest.textContent=loadBest();
+ els.summary.innerHTML=session.slice(0,Math.min(5,session.length))
+ .map((q,i)=>`Q${i+1}. ${q.w} → <b>${q.s}</b>`).join('<br>');
+ setBest();fitScale();
+}
+els.again.onclick=()=>{els.end.style.display='none';els.start.click();}
+</script>
+</body>
+</html>
