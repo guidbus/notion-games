@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>English – Fill the Blank </title>
+<style>
+:root{
+  --bg:#191919; --card:#0f1216; --ink:#eaf2f7; --muted:#98a5b3;
+  --accent:#00ffa6; --wrong:#ff5f5f; --right:#22c55e; --edge:#21262d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto;overflow:hidden}
+#root{position:relative;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+#scaleWrap{transform-origin:top center}
+.app{width:min(96vw,640px)}
+h1{margin:0 0 10px;font-size:20px}
+.card{background:var(--card);border:1px solid var(--edge);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.55);padding:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.badge{background:#121820;border:1px solid #1c222a;border-radius:10px;padding:6px 10px;font-weight:800;color:#cfe6dd}
+select,button{background:#12161c;border:1px solid #26303a;color:#e8eef5;border-radius:10px;padding:8px 12px;cursor:pointer}
+button.primary{background:var(--accent);border:none;color:#062017;font-weight:900}
+button:disabled{opacity:.55;cursor:not-allowed}
+.question{font-size:18px;line-height:1.5;margin:6px 0 12px}
+.blank{display:inline-block;min-width:110px;border-bottom:2px dashed #2c3440;text-align:center}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.opt{border:1px solid #26303a;background:#12161c;border-radius:12px;padding:10px 12px;text-align:left}
+.opt.kb::before{content:attr(data-kb);display:inline-block;width:20px;height:20px;border-radius:6px;
+  background:#0d1116;border:1px solid #1e252c;color:#cdd7e3;font-weight:800;line-height:20px;text-align:center;margin-right:8px}
+.opt:hover{border-color:#34414f}
+.opt.correct{border-color:#1f7f4a;background:rgba(34,197,94,.12)}
+.opt.wrong{border-color:#7f2b2b;background:rgba(255,95,95,.12)}
+.meta{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-size:13px}
+.progress{height:8px;background:#141a20;border:1px solid #1f2730;border-radius:6px;overflow:hidden}
+.fill{height:100%;background:linear-gradient(90deg,#00ffa6,#2dd4bf)}
+.feedback{margin-top:8px;font-size:14px}
+.feedback.good{color:var(--right)} .feedback.bad{color:var(--wrong)}
+.center{display:flex;justify-content:center;gap:10px;margin-top:12px}
+.small{font-size:12px;color:#9aabbc;text-align:center;margin-top:8px}
+hr{border:none;border-top:1px solid #1f2730;margin:12px 0}
+
+/* compact mode for Notion/iframe */
+.compact h1{font-size:16px;margin-bottom:6px}
+.compact .app{width:min(96vw,560px)}
+.compact .row{gap:6px;margin:4px 0}
+.compact .card{padding:12px}
+.compact .badge, .compact select, .compact button{padding:6px 9px;font-size:14px}
+.compact .question{font-size:16px}
+.compact .opt{padding:8px 10px;font-size:14px}
+.compact .meta{font-size:12px}
+.compact .small{font-size:11px}
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="scaleWrap">
+    <div class="app" id="app">
+      <h1>English – Fill the Blank ✍️</h1>
+      <div class="row">
+        <span class="badge">Mode</span>
+        <select id="qCount">
+          <option value="8">8 Qs</option>
+          <option value="10" selected>10 Qs</option>
+          <option value="15">15 Qs</option>
+        </select>
+        <span class="badge">Timer</span>
+        <select id="timerSel">
+          <option value="12">12s / Q</option>
+          <option value="15" selected>15s / Q</option>
+          <option value="20">20s / Q</option>
+        </select>
+        <button id="start" class="primary">Start</button>
+        <span class="badge" id="best">Best: —</span>
+      </div>
+
+      <div class="card" id="game" style="display:none">
+        <div class="question" id="qText"></div>
+        <div class="opts" id="opts"></div>
+        <div class="meta">
+          <div>Q <span id="idx">1</span>/<span id="total">10</span> • Score: <b id="score">0</b></div>
+          <div class="progress" style="width:48%"><div class="fill" id="bar" style="width:100%"></div></div>
+        </div>
+        <div class="feedback" id="fb"></div>
+        <div class="center">
+          <button id="skip">Skip</button>
+          <button id="next" disabled>Next</button>
+        </div>
+        <div class="small">Tip: press keys <b>1–4</b>. Notion-safe (no scrollbars).</div>
+      </div>
+
+      <div class="card" id="end" style="display:none">
+        <div style="font-size:18px;margin-bottom:8px">Session complete 🎉</div>
+        <div class="row">
+          <span class="badge">Score: <b id="finalScore">0</b></span>
+          <span class="badge">Best: <b id="finalBest">—</b></span>
+          <span class="badge">Accuracy: <b id="acc">0%</b></span>
+        </div>
+        <hr>
+        <div id="summary" class="small"></div>
+        <div class="center"><button id="again" class="primary">Play Again</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* --- Compact + auto-scale embed --- */
+(function(){
+  const inIframe = (()=>{ try{ return window.self!==window.top }catch(e){return true} })();
+  if(inIframe){ document.documentElement.classList.add('compact'); document.body.classList.add('compact'); }
+})();
+function fitScale(){
+  const app=document.getElementById('app');
+  const wrap=document.getElementById('scaleWrap');
+  wrap.style.transform='scale(1)';
+  const h=app.getBoundingClientRect().height;
+  const wh=window.innerHeight;
+  const scale=Math.min(1,(wh-8)/h);
+  wrap.style.transform='scale('+scale+')';
+}
+window.addEventListener('load',fitScale);
+window.addEventListener('resize',fitScale);
+
+/* --- main game (same logic) --- */
+const BANK=[{s:"She is ___ honest person.",a:"an",d:["a","the","—"],e:"Vowel sound → use “an”."},
+{s:"I will call you ___ Monday.",a:"on",d:["in","at","by"],e:"Days of the week → “on”."},
+{s:"He is interested ___ music production.",a:"in",d:["on","for","about"],e:"“interested in + noun/gerund”."},
+{s:"They arrived ___ the airport early.",a:"at",d:["to","in","on"],e:"Specific point/place → “at”."},
+{s:"I have been living here ___ 2019.",a:"since",d:["for","from","by"],e:"Starting point → “since”."},
+{s:"We waited ___ two hours.",a:"for",d:["since","during","from"],e:"Duration → “for”."},
+{s:"This is the boy ___ won the race.",a:"who",d:["which","whom","whose"],e:"Subject relative pronoun for people → “who”."},
+{s:"The book ___ I bought is expensive.",a:"that",d:["who","whom","whose"],e:"Object relative → “that/which”."},
+{s:"If it ___ tomorrow, we will stay home.",a:"rains",d:["will rain","rained","rain"],e:"Type 1 conditional: If + present, will + base."},
+{s:"I wish I ___ taller.",a:"were",d:["was","am","be"],e:"Subjunctive after wish → “were”."}];
+
+let session=[],idx=0,score=0,correct=0,totalQ=10,timePerQ=15,ticking=null;
+const q=sel=>document.querySelector(sel);
+const els={start:q('#start'),qCount:q('#qCount'),timerSel:q('#timerSel'),best:q('#best'),
+game:q('#game'),end:q('#end'),qText:q('#qText'),opts:q('#opts'),
+idx:q('#idx'),total:q('#total'),score:q('#score'),bar:q('#bar'),
+fb:q('#fb'),skip:q('#skip'),next:q('#next'),
+finalScore:q('#finalScore'),finalBest:q('#finalBest'),acc:q('#acc'),summary:q('#summary'),again:q('#again')};
+
+const BEST_KEY='efb_best_noscroll';
+const loadBest=()=>+localStorage.getItem(BEST_KEY)||null;
+const saveBest=x=>localStorage.setItem(BEST_KEY,x);
+function setBest(){const b=loadBest();els.best.textContent='Best: '+(b?b:'—');}
+setBest();
+
+els.start.onclick=()=>{
+  totalQ=+els.qCount.value; timePerQ=+els.timerSel.value;
+  session=shuffle(BANK).slice(0,totalQ); idx=score=correct=0;
+  els.total.textContent=totalQ; els.score.textContent=score;
+  els.game.style.display='block'; els.end.style.display='none';
+  renderQ(); fitScale();
+};
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function tpl(s){return s.replace('___','<span class="blank">_____</span>');}
+function renderQ(){
+  clearTick();const q=session[idx];els.idx.textContent=idx+1;
+  els.qText.innerHTML=tpl(q.s);els.opts.innerHTML='';els.fb.textContent='';els.next.disabled=true;
+  const choices=shuffle([q.a,...shuffle(q.d).slice(0,3)]).slice(0,4);
+  if(!choices.includes(q.a))choices[Math.floor(Math.random()*choices.length)]=q.a;
+  choices.forEach((c,i)=>{const b=document.createElement('button');b.className='opt kb';b.dataset.kb=i+1;b.innerHTML='<b>'+c+'</b>';b.onclick=()=>choose(c,b);els.opts.appendChild(b);});
+  tick(); fitScale();
+}
+function tick(){
+  els.bar.style.width='100%';const start=Date.now();
+  function frame(){const r=Math.max(0,timePerQ-(Date.now()-start)/1000);els.bar.style.width=(r/timePerQ*100)+'%';
+    if(r<=0)timeUp();else ticking=requestAnimationFrame(frame);}
+  ticking=requestAnimationFrame(frame);
+}
+function clearTick(){if(ticking)cancelAnimationFrame(ticking),ticking=null;}
+function timeUp(){clearTick();lock();els.fb.textContent=`⏳ Time up! Correct: ${session[idx].a}`;els.fb.className='feedback bad';els.next.disabled=false;fitScale();}
+function lock(){[...els.opts.children].forEach(b=>b.disabled=true);}
+function choose(val,btn){
+  clearTick();lock();const q=session[idx];
+  if(val===q.a){btn.classList.add('correct');els.fb.textContent='✅ Correct!';els.fb.className='feedback good';score+=10;correct++;}
+  else{btn.classList.add('wrong');[...els.opts.children].forEach(b=>{if(b.textContent.trim()===q.a)b.classList.add('correct');});
+    els.fb.innerHTML=`❌ Wrong — <b>${q.a}</b>. <span style="color:#a9b6c5">(${q.e})</span>`;els.fb.className='feedback bad';}
+  els.score.textContent=score;els.next.disabled=false;fitScale();
+}
+els.next.onclick=()=>{idx++;idx>=session.length?end():renderQ();}
+els.skip.onclick=()=>{clearTick();lock();els.fb.textContent=`↷ Skipped — Correct: ${session[idx].a}`;els.fb.className='feedback bad';els.next.disabled=false;fitScale();}
+window.addEventListener('keydown',e=>{const k=e.key;if(els.game.style.display==='none')return;
+  if(k>='1'&&k<='4'){const i=+k-1;const b=els.opts.children[i];if(b&&!b.disabled)b.click();}
+  if(k==='n'&& !els.next.disabled)els.next.click();
+});
+function end(){
+  els.game.style.display='none';els.end.style.display='block';
+  els.finalScore.textContent=score;const acc=Math.round(correct/session.length*100);els.acc.textContent=acc+'%';
+  const prev=loadBest();if(!prev||score>prev)saveBest(score);
+  els.finalBest.textContent=loadBest();els.summary.innerHTML=session.map((q,i)=>`Q${i+1}. ${q.s.replace('___','___')} → <b>${q.a}</b>`).slice(0,5).join('<br>');
+  setBest();fitScale();
+}
+els.again.onclick=()=>{els.end.style.display='none';els.start.click();}
+</script>
+</body>
+</html>
+
