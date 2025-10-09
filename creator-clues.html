@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
+<title>Creator Clues — Global Influencers (No Faces)</title>
+<style>
+:root{
+  --bg:#191919; --card:#0f1216; --ink:#eaf2f7; --muted:#9fb0c2;
+  --accent:#00ffa6; --good:#22c55e; --bad:#ff5f5f; --edge:#21262d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:Inter,system-ui,Segoe UI,Roboto;overflow:hidden} /* no page scroll */
+#root{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+#scaleWrap{transform-origin:top center}
+
+/* UI */
+.app{width:min(96vw,760px)}
+h1{margin:0 0 10px;font-size:20px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.badge{background:#121820;border:1px solid #1c222a;border-radius:10px;padding:6px 10px;font-weight:800;color:#cfe6dd}
+button,select{background:#12161c;border:1px solid var(--edge);color:var(--ink);border-radius:10px;padding:8px 12px;cursor:pointer}
+button.primary{background:var(--accent);border:none;color:#062017;font-weight:900}
+button:disabled{opacity:.55;cursor:not-allowed}
+.card{background:var(--card);border:1px solid var(--edge);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.55);padding:16px}
+
+/* Clue box */
+.clueBox{display:flex;gap:14px;align-items:flex-start;border:1px dashed #26303a;border-radius:14px;background:#0b0f14;padding:16px;margin-top:8px}
+.logoWrap{flex:0 0 72px;height:72px;border-radius:12px;background:#0e141b;border:1px solid #1e2732;display:flex;align-items:center;justify-content:center}
+.logoWrap svg{width:42px;height:42px;filter:drop-shadow(0 6px 16px rgba(0,0,0,.35))}
+.clues{flex:1}
+.clues .kicker{font-size:12px;color:#9fb0c2;margin-bottom:4px}
+.clues .line{font-size:16px;margin:4px 0}
+
+/* Quiz */
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.opt{border:1px solid #26303a;background:#12161c;border-radius:12px;padding:10px 12px;text-align:left}
+.opt.kb::before{content:attr(data-kb);display:inline-block;width:20px;height:20px;border-radius:6px;
+  background:#0d1116;border:1px solid #1e252c;color:#cdd7e3;font-weight:800;line-height:20px;text-align:center;margin-right:8px}
+.opt:hover{border-color:#34414f}
+.opt.correct{border-color:#1f7f4a;background:rgba(34,197,94,.12)}
+.opt.wrong{border-color:#7f2b2b;background:rgba(255,95,95,.12)}
+.meta{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-size:13px}
+.progress{height:8px;background:#141a20;border:1px solid #1f2730;border-radius:6px;overflow:hidden}
+.fill{height:100%;background:linear-gradient(90deg,#00ffa6,#2dd4bf)}
+.feedback{margin-top:8px;font-size:14px}
+.feedback.good{color:var(--good)} .feedback.bad{color:var(--bad)}
+.center{display:flex;justify-content:center;gap:10px;margin-top:12px}
+.small{font-size:12px;color:#9aabbc;text-align:center;margin-top:6px}
+
+/* compact embed */
+.compact h1{font-size:16px;margin-bottom:6px}
+.compact .app{width:min(96vw,620px)}
+.compact .card{padding:12px}
+.compact .logoWrap{flex-basis:64px;height:64px}
+.compact .clues .line{font-size:14px}
+.compact .opt{padding:8px 10px;font-size:14px}
+.compact .meta{font-size:12px}
+.compact .small{font-size:11px}
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="scaleWrap">
+    <div class="app" id="app">
+      <h1>Creator Clues 🌍 — Guess the Influencer (No Faces)</h1>
+
+      <div class="row">
+        <span class="badge">Category</span>
+        <select id="cat">
+          <option value="mixed" selected>Mixed</option>
+          <option value="youtube">YouTube</option>
+          <option value="instagram">Instagram</option>
+          <option value="tiktok">TikTok</option>
+          <option value="twitter">X (Twitter)</option>
+          <option value="facebook">Facebook</option>
+          <option value="snapchat">Snapchat</option>
+          <option value="twitch">Twitch</option>
+          <option value="linkedin">LinkedIn</option>
+          <option value="pinterest">Pinterest</option>
+          <option value="reddit">Reddit</option>
+        </select>
+
+        <span class="badge">Questions</span>
+        <select id="qCount">
+          <option value="12">12</option>
+          <option value="20" selected>20</option>
+          <option value="40">40</option>
+        </select>
+
+        <span class="badge">Timer</span>
+        <select id="timerSel">
+          <option value="10">10s / Q</option>
+          <option value="12" selected>12s / Q</option>
+          <option value="15">15s / Q</option>
+        </select>
+
+        <button id="start" class="primary">Start</button>
+        <span class="badge" id="best">Best: —</span>
+      </div>
+
+      <div class="card" id="game" style="display:none">
+        <div class="clueBox">
+          <div class="logoWrap" id="platformLogo" aria-hidden="true"></div>
+          <div class="clues">
+            <div class="kicker" id="kicker">Platform • Country • Niche</div>
+            <div class="line" id="clue1"></div>
+            <div class="line" id="clue2"></div>
+          </div>
+        </div>
+
+        <div class="opts" id="opts"></div>
+
+        <div class="meta">
+          <div><span id="catTag">Mixed</span> • Q <span id="idx">1</span>/<span id="total">20</span> • Score: <b id="score">0</b></div>
+          <div class="progress" style="width:48%"><div class="fill" id="bar" style="width:100%"></div></div>
+        </div>
+
+        <div class="feedback" id="fb"></div>
+
+        <div class="center">
+          <button id="skip">Skip</button>
+          <button id="next" disabled>Next</button>
+        </div>
+        <div class="small">Clues only (no faces) — inspired, hardworking, global creators. Use keys <b>1–4</b>. Notion-safe.</div>
+      </div>
+
+      <div class="card" id="end" style="display:none">
+        <div style="font-size:18px;margin-bottom:8px">Round complete 🎉</div>
+        <div class="row">
+          <span class="badge">Score: <b id="finalScore">0</b></span>
+          <span class="badge">Best: <b id="finalBest">—</b></span>
+          <span class="badge">Accuracy: <b id="acc">0%</b></span>
+        </div>
+        <div class="center"><button id="again" class="primary">Play Again</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ----- Embed helpers: compact + auto-scale (no scroll) ----- */
+(function(){ const inIframe=(()=>{try{return window.self!==window.top}catch(e){return true}})();
+  if(inIframe){ document.documentElement.classList.add('compact'); document.body.classList.add('compact'); }
+})();
+function fitScale(){ const app=document.getElementById('app'), wrap=document.getElementById('scaleWrap');
+  wrap.style.transform='scale(1)'; const h=app.getBoundingClientRect().height, wh=window.innerHeight;
+  wrap.style.transform='scale('+Math.min(1,(wh-8)/h)+')'; }
+window.addEventListener('load',fitScale); window.addEventListener('resize',fitScale);
+
+/* ------- Minimal platform SVG icons (inline, lightweight) ------- */
+const ICONS={
+  youtube:'<svg viewBox="0 0 24 24" fill="#ff0000"><path d="M23.5 6.2a3.1 3.1 0 0 0-2.2-2.2C19 3.5 12 3.5 12 3.5s-7 0-9.3.5A3.1 3.1 0 0 0 .5 6.2 32 32 0 0 0 0 12a32 32 0 0 0 .5 5.8 3.1 3.1 0 0 0 2.2 2.2C5 20.5 12 20.5 12 20.5s7 0 9.3-.5a3.1 3.1 0 0 0 2.2-2.2A32 32 0 0 0 24 12a32 32 0 0 0-.5-5.8zM9.7 15.6V8.4L15.8 12l-6.1 3.6z"/></svg>',
+  instagram:'<svg viewBox="0 0 24 24"><defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f58529"/><stop offset=".3" stop-color="#dd2a7b"/><stop offset=".7" stop-color="#8134af"/><stop offset="1" stop-color="#515bd4"/></linearGradient></defs><rect rx="5" width="24" height="24" fill="url(#g)"/><circle cx="18" cy="6" r="2" fill="#fff"/><circle cx="12" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2"/></svg>',
+  tiktok:'<svg viewBox="0 0 24 24"><path fill="#000" d="M0 0h24v24H0z"/><path fill="#69C9D0" d="M9 9a5 5 0 1 0 4 8v-3a2 2 0 1 1-2 2V7h3a6 6 0 0 0 6 6v3a9 9 0 0 1-7-3v6a8 8 0 1 1-4-10z"/><path fill="#EE1D52" d="M11 7v9a2 2 0 1 1-2-2V7h2z"/></svg>',
+  twitter:'<svg viewBox="0 0 24 24" fill="#eaeef5"><path d="M18.244 2H21l-6.5 7.43L22 22h-6.773l-5.293-6.84L3.5 22H1l7.09-8.117L2 2h6.773l4.773 6.231L18.244 2Zm-2.37 18h2.37L8.242 4h-2.37L15.874 20Z"/></svg>',
+  facebook:'<svg viewBox="0 0 24 24" fill="#1877F2"><path d="M22 12.07C22 6.49 17.52 2 11.94 2 6.35 2 1.87 6.49 1.87 12.07c0 5.01 3.66 9.17 8.44 9.97v-7.05H7.9v-2.92h2.41V9.41c0-2.38 1.41-3.7 3.57-3.7 1.03 0 2.1.18 2.1.18v2.33h-1.18c-1.16 0-1.53.72-1.53 1.46v1.76h2.61l-.42 2.92h-2.19v7.05c4.78-.8 8.44-4.96 8.44-9.97Z"/></svg>',
+  snapchat:'<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FFFC00"/><path d="M12 5c-2.2 0-4 1.9-4 4.3 0 1-.3 1.6-.8 2.2-.5.6-1.3.8-2 .9-.4 0-.6.5-.3.8.7.6 1.7.7 2.3.8.4 1 1.7 2 3 2.3.1.5.3 1 .6 1.3.8.8 2 .7 2.8 0 .3-.3.5-.8.6-1.3 1.3-.3 2.6-1.2 3-2.3.6-.1 1.7-.2 2.3-.8.3-.3.1-.8-.3-.8-.7-.1-1.5-.3-2-.9-.5-.6-.8-1.2-.8-2.2C16 6.9 14.2 5 12 5Z" fill="#000"/></svg>',
+  twitch:'<svg viewBox="0 0 24 24" fill="#9146FF"><path d="M4 3h17v12l-4 4h-4l-3 3H8v-3H4V3Zm3 2v11h4v3l3-3h4l2-2V5H7Zm9 2h-2v5h2V7Zm-4 0h-2v5h2V7Z"/></svg>',
+  linkedin:'<svg viewBox="0 0 24 24" fill="#0A66C2"><path d="M4.98 3.5A2.5 2.5 0 1 1 2.48 6a2.5 2.5 0 0 1 2.5-2.5zM3 8h4v12H3zM9 8h3.7v1.6h.1C13.5 8.8 15 8 16.8 8 21 8 21 10.8 21 14.7V20h-4v-4.7c0-1.1 0-2.6-1.6-2.6s-1.9 1.2-1.9 2.5V20H9z"/></svg>',
+  pinterest:'<svg viewBox="0 0 24 24" fill="#E60023"><path d="M12.04 2C6.55 2 3 5.93 3 10.34c0 2.03.8 3.84 2.52 4.52.28.11.54 0 .62-.31l.42-1.62c.09-.31.05-.43-.18-.71-.49-.56-.8-1.29-.8-2.33 0-2.99 2.24-5.67 5.83-5.67 3.18 0 4.93 1.95 4.93 4.55 0 3.41-1.51 6.29-3.76 6.29-1.24 0-2.17-1.02-1.87-2.26.36-1.52 1.05-3.15 1.05-4.25 0-.98-.53-1.8-1.63-1.8-1.3 0-2.35 1.35-2.35 3.16 0 1.15.39 1.94.39 1.94l-1.58 6.72c-.47 2 .06 4.45.1 4.69.03.14.19.19.28.07.12-.16 1.61-2.3 2.12-4.42.14-.55.82-3.21.82-3.21.41.77 1.61 1.45 2.88 1.45 3.79 0 6.36-3.59 6.36-8.41C20.95 5.26 17.87 2 12.04 2z"/></svg>',
+  reddit:'<svg viewBox="0 0 24 24" fill="#FF4500"><path d="M22 12c0 5.52-4.66 10-10.4 10S1.2 17.52 1.2 12 5.86 2 11.6 2c2.1 0 4.05.59 5.73 1.6l1.3-1.3 1.13 1.13-1.28 1.28A9.8 9.8 0 0 1 22 12Zm-8.4 6.4c3.82 0 6.93-2.36 6.93-5.28S17.42 7.84 13.6 7.84 6.67 10.2 6.67 13.12 9.79 18.4 13.6 18.4Zm-3.2-5.6a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2Zm6.4 0a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2Z"/></svg>'
+};
+
+/* --------- Data format ---------
+   {p: 'youtube', n: 'MrBeast', c:'USA', niche:'Philanthropy/Challenges',
+    clue1:'Record-breaking giveaways & large-scale challenges.',
+    clue2:'Known for high-effort videos; philanthropy projects.'}
+   NOTE: No face images, only text clues.
+----------------------------------*/
+const DATA = [
+  /* YouTube */
+  {p:'youtube', n:'MrBeast', c:'USA', niche:'Philanthropy/Challenges', clue1:'Large-scale challenge videos & charity projects.', clue2:'Known for massive giveaways and viral stunts.'},
+  {p:'youtube', n:'PewDiePie', c:'Sweden', niche:'Gaming/Commentary', clue1:'One of the most-subscribed solo creators.', clue2:'Started with gaming; humorous commentary.'},
+  {p:'youtube', n:'Whindersson Nunes', c:'Brazil', niche:'Comedy/Vlogs', clue1:'Brazilian comedy star with global reach.', clue2:'Stand-up, skits, and vlogs.'},
+  {p:'youtube', n:'A4', c:'Belarus', niche:'Challenges/Entertainment', clue1:'High-energy challenge & prank style.', clue2:'Youth audience; fast-paced edits.'},
+  {p:'youtube', n:'Dude Perfect', c:'USA', niche:'Sports/Trick Shots', clue1:'Insane trick shots & sports entertainment.', clue2:'Group of friends; stereotypes series.'},
+  {p:'youtube', n:'Like Nastya', c:'Russia/USA', niche:'Kids/Family', clue1:'Kids edutainment with global audience.', clue2:'Colorful family-friendly stories.'},
+  {p:'youtube', n:'Vlad and Niki', c:'Russia/UAE', niche:'Kids/Family', clue1:'Two brothers in imaginative adventures.', clue2:'Toys, playtime, bright visuals.'},
+  {p:'youtube', n:'Alan Walker', c:'Norway/UK', niche:'Music/EDM', clue1:'“Faded” hit producer-DJ with masked brand.', clue2:'Music videos + live shows.'},
+  {p:'youtube', n:'El Rubius', c:'Spain', niche:'Gaming/Variety', clue1:'Spanish-speaking variety gamer & memes.', clue2:'Huge Iberian/LatAm fanbase.'},
+  {p:'youtube', n:'Smosh', c:'USA', niche:'Sketch Comedy', clue1:'Long-running internet sketch duo/team.', clue2:'OG YouTube comedy pioneers.'},
+
+  /* Instagram */
+  {p:'instagram', n:'Cristiano Ronaldo', c:'Portugal', niche:'Football', clue1:'Most-followed athlete globally.', clue2:'Striker; multiple Ballon d’Ors.'},
+  {p:'instagram', n:'Lionel Messi', c:'Argentina', niche:'Football', clue1:'World Cup winning captain.', clue2:'Playmaker with record goals.'},
+  {p:'instagram', n:'Selena Gomez', c:'USA', niche:'Music/Acting', clue1:'Pop artist & actor with beauty brand.', clue2:'Known for philanthropy work too.'},
+  {p:'instagram', n:'Kylie Jenner', c:'USA', niche:'Beauty/Business', clue1:'Beauty entrepreneur & TV personality.', clue2:'Kylie Cosmetics founder.'},
+  {p:'instagram', n:'Virat Kohli', c:'India', niche:'Cricket', clue1:'Top cricket batsman & captaincy legacy.', clue2:'Fitness & consistency icon.'},
+  {p:'instagram', n:'Khaby Lame', c:'Italy/Senegal', niche:'Comedy', clue1:'Silent reaction satire on overcomplicated hacks.', clue2:'Minimalist deadpan style.'},
+
+  /* TikTok */
+  {p:'tiktok', n:'Charli D’Amelio', c:'USA', niche:'Dance', clue1:'Early dance trend phenomenon.', clue2:'Family reality shows & collabs.'},
+  {p:'tiktok', n:'Bella Poarch', c:'USA/Philippines', niche:'Lip-sync/Music', clue1:'Viral close-up lip-sync; later music.', clue2:'Distinctive aesthetic branding.'},
+  {p:'tiktok', n:'Addison Rae', c:'USA', niche:'Dance/Entertainment', clue1:'Dance videos → acting/music ventures.', clue2:'Global Gen-Z following.'},
+  {p:'tiktok', n:'Zach King', c:'USA', niche:'Magic/Visual tricks', clue1:'“Digital sleight of hand” illusions.', clue2:'Seamless VFX short-form.'},
+  {p:'tiktok', n:'Burak Özdemir (CZN Burak)', c:'Turkey', niche:'Food/Cooking', clue1:'Giant dishes + big smile brand.', clue2:'Global restaurant expansions.'},
+
+  /* X (Twitter) */
+  {p:'twitter', n:'Elon Musk', c:'USA', niche:'Tech/Space', clue1:'EVs & rockets; very active poster.', clue2:'Space, AI, and engineering topics.'},
+  {p:'twitter', n:'Barack Obama', c:'USA', niche:'Public Service', clue1:'Former US President; community messages.', clue2:'Civic themes & initiatives.'},
+  {p:'twitter', n:'Narendra Modi', c:'India', niche:'Public Service', clue1:'Government leadership updates.', clue2:'Public programs and addresses.'},
+  {p:'twitter', n:'Taylor Swift', c:'USA', niche:'Music', clue1:'Record-breaking tours & albums.', clue2:'Songwriting & fandom culture.'},
+  {p:'twitter', n:'MrBeast', c:'USA', niche:'Creator/Philanthropy', clue1:'Cross-platform creator presence.', clue2:'Large-scale giveaways.'},
+
+  /* Facebook */
+  {p:'facebook', n:'Shakira', c:'Colombia', niche:'Music', clue1:'Latin pop icon & Super Bowl performer.', clue2:'Global dance hits.'},
+  {p:'facebook', n:'Vin Diesel', c:'USA', niche:'Acting', clue1:'Action franchise star & car culture.', clue2:'Fast cars & family meme.'},
+  {p:'facebook', n:'Rihanna', c:'Barbados', niche:'Music/Business', clue1:'Singer + beauty entrepreneur.', clue2:'Multi-genre hits & fashion.'},
+
+  /* Snapchat */
+  {p:'snapchat', n:'Kylie Jenner', c:'USA', niche:'Beauty/Business', clue1:'Major Snap audience with product buzz.', clue2:'Stories driving commerce.'},
+  {p:'snapchat', n:'David Dobrik', c:'USA', niche:'Vlogs/Comedy', clue1:'Fast-cut vlog style; high energy.', clue2:'Pranks, friends, surprises.'},
+
+  /* Twitch */
+  {p:'twitch', n:'Ninja', c:'USA', niche:'Gaming', clue1:'Streamer famous from battle royale era.', clue2:'Colorful brand & esports roots.'},
+  {p:'twitch', n:'shroud', c:'Canada', niche:'Gaming', clue1:'Aim god; FPS mastery.', clue2:'Ex-pro CS:GO; calm vibe.'},
+  {p:'twitch', n:'Pokimane', c:'Canada/Morocco', niche:'Gaming/Variety', clue1:'Variety streaming + community focus.', clue2:'Charity & events participation.'},
+
+  /* LinkedIn */
+  {p:'linkedin', n:'Satya Nadella', c:'India/USA', niche:'Leadership/Tech', clue1:'Cloud-first CEO; cultural shift case study.', clue2:'Talks on empathy & innovation.'},
+  {p:'linkedin', n:'Sundar Pichai', c:'India/USA', niche:'Leadership/Tech', clue1:'Search to AI leadership journey.', clue2:'Product vision + scale ops.'},
+  {p:'linkedin', n:'Indra Nooyi', c:'India/USA', niche:'Leadership/Business', clue1:'Global CEO legacy; strategy & design thinking.', clue2:'Sustainability & purpose themes.'},
+
+  /* Pinterest */
+  {p:'pinterest', n:'Martha Stewart', c:'USA', niche:'Home/Lifestyle', clue1:'DIY, cooking, home inspiration.', clue2:'Timeless crafts & hosting ideas.'},
+  {p:'pinterest', n:'Joanna Gaines', c:'USA', niche:'Home/Design', clue1:'Modern farmhouse aesthetic icon.', clue2:'Fixer-upper fame.'},
+
+  /* Reddit */
+  {p:'reddit', n:'u/lexfridman', c:'USA', niche:'AI/Conversations', clue1:'Long-form thoughtful tech talks.', clue2:'Deep-dive podcast culture.'},
+  {p:'reddit', n:'u/CGP_Grey', c:'UK/USA', niche:'Education', clue1:'Explainer videos; maps & systems.', clue2:'Clear voiceover style.'},
+];
+
+/* --- helpers --- */
+function qs(s){return document.querySelector(s);}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function pickIcon(p){return ICONS[p]||'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#555"/></svg>';}
+
+/* --- state --- */
+const ui={
+  cat:qs('#cat'), qCount:qs('#qCount'), timerSel:qs('#timerSel'), best:qs('#best'), start:qs('#start'),
+  game:qs('#game'), end:qs('#end'),
+  platformLogo:qs('#platformLogo'), kicker:qs('#kicker'), clue1:qs('#clue1'), clue2:qs('#clue2'),
+  opts:qs('#opts'),
+  catTag:qs('#catTag'), idx:qs('#idx'), total:qs('#total'), score:qs('#score'), bar:qs('#bar'), fb:qs('#fb'),
+  skip:qs('#skip'), next:qs('#next'),
+  finalScore:qs('#finalScore'), finalBest:qs('#finalBest'), acc:qs('#acc'),
+  again:qs('#again')
+};
+let session=[], pool=[], idx=0, score=0, correct=0, timePerQ=12, ticking=null;
+
+function bestKey(){return 'creator_clues_best_'+ui.cat.value;}
+const loadBest=()=>+localStorage.getItem(bestKey())||null;
+const saveBest=x=>localStorage.setItem(bestKey(),x);
+function setBest(){const b=loadBest(); ui.best.textContent='Best: '+(b?b:'—');}
+
+/* Build session */
+function buildPool(cat){
+  return (cat==='mixed') ? DATA.slice() : DATA.filter(x=>x.p===cat);
+}
+function getChoices(answer, cat){
+  const base = buildPool(cat);
+  const wrongs = shuffle(base.filter(x=>x.n!==answer).map(x=>x.n)).slice(0,3);
+  return shuffle([answer, ...wrongs]).slice(0,4);
+}
+
+/* Start */
+ui.start.onclick=()=>{
+  const cat=ui.cat.value, total=+ui.qCount.value;
+  timePerQ=+ui.timerSel.value;
+  pool = buildPool(cat);
+  session = shuffle(pool).slice(0,total);
+  idx=0; score=0; correct=0;
+  ui.total.textContent=total; ui.score.textContent=score; ui.catTag.textContent=cat[0].toUpperCase()+cat.slice(1);
+  setBest();
+  ui.game.style.display='block'; ui.end.style.display='none';
+  renderQ(); fitScale();
+};
+
+function renderQ(){
+  clearTick(); ui.fb.textContent=''; ui.fb.className='feedback'; ui.next.disabled=true;
+  const q=session[idx]; ui.idx.textContent=idx+1;
+  ui.platformLogo.innerHTML = pickIcon(q.p);
+  ui.kicker.textContent = `${q.p.toUpperCase()} • ${q.c} • ${q.niche}`;
+  ui.clue1.textContent = '• ' + q.clue1;
+  ui.clue2.textContent = '• ' + q.clue2;
+
+  const choices = getChoices(q.n, ui.cat.value);
+  ui.opts.innerHTML='';
+  choices.forEach((c,i)=>{
+    const b=document.createElement('button');
+    b.className='opt kb'; b.dataset.kb=i+1; b.innerHTML='<b>'+c+'</b>';
+    b.onclick=()=> choose(c,b,q.n);
+    ui.opts.appendChild(b);
+  });
+
+  startTimer(); fitScale();
+}
+
+/* Timer */
+function startTimer(){
+  ui.bar.style.width='100%';
+  const start=Date.now();
+  function frame(){
+    const remain=Math.max(0, timePerQ - (Date.now()-start)/1000);
+    ui.bar.style.width=(remain/timePerQ*100)+'%';
+    if(remain<=0) timeUp(); else ticking=requestAnimationFrame(frame);
+  }
+  ticking=requestAnimationFrame(frame);
+}
+function clearTick(){ if(ticking){ cancelAnimationFrame(ticking); ticking=null; } }
+function lock(){ [...ui.opts.children].forEach(b=>b.disabled=true); }
+function timeUp(){ clearTick(); lock();
+  const ans=session[idx].n; ui.fb.textContent='⏳ Time up! Correct: '+ans;
+  ui.fb.className='feedback bad'; ui.next.disabled=false; fitScale(); }
+
+/* Answer */
+function choose(val,btn,ans){
+  clearTick(); lock();
+  if(val===ans){ btn.classList.add('correct'); ui.fb.textContent='✅ Correct!'; ui.fb.className='feedback good'; score+=10; correct++; ui.score.textContent=score; }
+  else{ btn.classList.add('wrong'); [...ui.opts.children].forEach(b=>{ if(b.textContent.trim()===ans) b.classList.add('correct'); }); ui.fb.textContent='❌ Wrong — Correct: '+ans; ui.fb.className='feedback bad'; }
+  ui.next.disabled=false; fitScale();
+}
+
+/* Nav */
+ui.next.onclick=()=>{ idx++; if(idx>=session.length) endGame(); else renderQ(); };
+ui.skip.onclick=()=>{ clearTick(); lock(); const ans=session[idx].n; ui.fb.textContent='↷ Skipped — Correct: '+ans; ui.fb.className='feedback bad'; ui.next.disabled=false; fitScale(); };
+window.addEventListener('keydown',e=>{
+  const k=e.key; if(ui.game.style.display==='none') return;
+  if(k>='1'&&k<='4'){ const i=+k-1; const b=ui.opts.children[i]; if(b&&!b.disabled) b.click(); }
+  if((k==='n'||k==='N') && !ui.next.disabled) ui.next.click();
+});
+
+/* End */
+function endGame(){
+  ui.game.style.display='none'; ui.end.style.display='block';
+  ui.finalScore.textContent=score;
+  const acc=Math.round((correct/session.length)*100); 
+  const prev=loadBest(); if(!prev||score>prev) saveBest(score);
+  ui.finalBest.textContent=loadBest();
+  const accBadge=document.createElement('span'); accBadge.textContent=acc+'%'; accBadge.className='badge';
+  const endRow=ui.end.querySelector('.row'); endRow.querySelector(':nth-child(3)').innerHTML='Accuracy: <b>'+acc+'%</b>';
+  fitScale();
+}
+ui.again.onclick=()=>{ ui.end.style.display='none'; ui.start.click(); };
+</script>
+</body>
+</html>
