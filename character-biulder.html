@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Character Builder</title>
+<style>
+:root{
+  --bg:#191919; --card:#0f1216; --ink:#eaf2f7; --muted:#9fb0c2; --edge:#232b33;
+  --grad:linear-gradient(90deg,#00ffa6,#7cc6ff,#a78bfa,#ffd36e);
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:Inter,system-ui,Roboto;display:flex;justify-content:center;align-items:center;overflow:hidden;
+}
+.app{width:min(96vw,860px)}
+h1{text-align:center;margin:0 0 8px;font-size:28px}
+.sub{color:var(--muted);text-align:center;margin:0 0 12px}
+
+/* Card / pills */
+.card{background:var(--card);border:1px solid var(--edge);border-radius:16px;padding:20px 24px;box-shadow:0 18px 48px rgba(0,0,0,.55)}
+input[type=radio],input[type=checkbox]{position:absolute;opacity:0;pointer-events:none}
+.pill{cursor:pointer;display:inline-block;padding:8px 14px;margin:3px;border-radius:999px;background:#10161c;border:1px solid #26303a;color:#cfe6dd;font-weight:600}
+input:checked+label.pill{background:var(--grad);color:#061a18;border:none;font-weight:800}
+
+/* screens */
+#start,#session{display:none}
+#go:checked ~ #session{display:block}
+#go:not(:checked) ~ #start{display:block}
+
+/* path tint badges */
+.tint{display:none;padding:6px 10px;border-radius:10px;font-weight:800;margin-bottom:10px}
+.is-dis{background:linear-gradient(90deg,#7cffe0,#00ffa6);color:#041b14}
+.is-cou{background:linear-gradient(90deg,#fb7185,#fbbf24);color:#1a0a0a}
+.is-gra{background:linear-gradient(90deg,#a78bfa,#60a5fa);color:#130a26}
+.is-kin{background:linear-gradient(90deg,#f9a8d4,#a7f3d0);color:#1b0a15}
+.is-foc{background:linear-gradient(90deg,#7cc6ff,#60f0c1);color:#03141a}
+.is-res{background:linear-gradient(90deg,#fde68a,#86efac);color:#1a1506}
+
+/* progress */
+.progress{height:10px;border-radius:8px;background:#11161c;border:1px solid #1f2832;overflow:hidden;margin-bottom:12px}
+.fill{height:100%;width:0;background:var(--grad);background-size:250% 100%}
+
+/* steps container */
+.steps{position:relative;min-height:270px}
+.step{display:none;animation:fade .35s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.step h3{margin:0 0 6px;font-size:17px}
+.step p{margin:0 0 10px;color:var(--muted);font-size:14px;line-height:1.5}
+.counter{position:absolute;top:10px;right:10px;font-size:12px;color:#a3b3c2}
+.time{font-size:12px;color:#a3b3c2;margin-left:6px}
+.next{display:inline-block;background:linear-gradient(90deg,#00ffa6,#7cc6ff);
+  color:#041b15;font-weight:800;padding:8px 12px;border-radius:10px;border:none;cursor:pointer}
+
+/* radio-driven flow (12 steps) */
+#s1:checked  ~ .steps .p1,
+#s2:checked  ~ .steps .p2,
+#s3:checked  ~ .steps .p3,
+#s4:checked  ~ .steps .p4,
+#s5:checked  ~ .steps .p5,
+#s6:checked  ~ .steps .p6,
+#s7:checked  ~ .steps .p7,
+#s8:checked  ~ .steps .p8,
+#s9:checked  ~ .steps .p9,
+#s10:checked ~ .steps .p10,
+#s11:checked ~ .steps .p11,
+#s12:checked ~ .steps .p12{display:block}
+
+/* progress widths per step (pure CSS) */
+#s1:checked  ~ .progress .fill{width:8%}
+#s2:checked  ~ .progress .fill{width:16%}
+#s3:checked  ~ .progress .fill{width:24%}
+#s4:checked  ~ .progress .fill{width:32%}
+#s5:checked  ~ .progress .fill{width:40%}
+#s6:checked  ~ .progress .fill{width:48%}
+#s7:checked  ~ .progress .fill{width:56%}
+#s8:checked  ~ .progress .fill{width:64%}
+#s9:checked  ~ .progress .fill{width:72%}
+#s10:checked ~ .progress .fill{width:80%}
+#s11:checked ~ .progress .fill{width:90%}
+#s12:checked ~ .progress .fill{width:100%}
+
+/* restart */
+.restart{width:100%;margin-top:14px;background:linear-gradient(90deg,#7cc6ff,#7cffe0);color:#041b15;border:none;border-radius:999px;padding:10px;font-weight:800;cursor:pointer}
+
+/* compact */
+@media(max-width:560px){.app{width:min(96vw,560px)}h1{font-size:24px}}
+</style>
+</head>
+<body>
+<form class="app">
+  <h1>Character Builder</h1>
+  <p class="sub">Choose a path and complete the micro-quests to grow your character.</p>
+
+  <!-- PATH (emotions/virtues) -->
+  <div style="text-align:center;margin-bottom:10px">
+    <input id="dis" name="path" type="radio" checked><label for="dis" class="pill">Discipline</label>
+    <input id="cou" name="path" type="radio"><label for="cou" class="pill">Courage</label>
+    <input id="gra" name="path" type="radio"><label for="gra" class="pill">Gratitude</label>
+    <input id="kin" name="path" type="radio"><label for="kin" class="pill">Kindness</label>
+    <input id="foc" name="path" type="radio"><label for="foc" class="pill">Focus</label>
+    <input id="res" name="path" type="radio"><label for="res" class="pill">Resilience</label>
+  </div>
+
+  <!-- START / SESSION toggle -->
+  <input id="go" type="checkbox">
+
+  <!-- START screen -->
+  <div id="start" class="card">
+    <div class="sub"><b>Patience builds everything.</b> Character grows when you show up, breathe, and do the next small thing well.</div>
+    <label for="go" class="pill" style="background:var(--grad);color:#061a18;font-weight:800;margin-top:10px;display:inline-block">Start Journey →</label>
+  </div>
+
+  <!-- SESSION -->
+  <div id="session" class="card">
+    <!-- path headline -->
+    <div class="tint is-dis">Path of Discipline</div>
+    <div class="tint is-cou">Path of Courage</div>
+    <div class="tint is-gra">Path of Gratitude</div>
+    <div class="tint is-kin">Path of Kindness</div>
+    <div class="tint is-foc">Path of Focus</div>
+    <div class="tint is-res">Path of Resilience</div>
+
+    <!-- STEP radios (12) -->
+    <input type="radio" name="step" id="s1" checked>
+    <input type="radio" name="step" id="s2">
+    <input type="radio" name="step" id="s3">
+    <input type="radio" name="step" id="s4">
+    <input type="radio" name="step" id="s5">
+    <input type="radio" name="step" id="s6">
+    <input type="radio" name="step" id="s7">
+    <input type="radio" name="step" id="s8">
+    <input type="radio" name="step" id="s9">
+    <input type="radio" name="step" id="s10">
+    <input type="radio" name="step" id="s11">
+    <input type="radio" name="step" id="s12">
+
+    <!-- PROGRESS -->
+    <div class="progress"><div class="fill"></div></div>
+
+    <!-- QUESTS -->
+    <div class="steps">
+      <div class="step p1"><span class="counter">1/12</span><span class="time">• 30 sec</span>
+        <h3>Breath & Posture</h3><p>Sit tall. Inhale 4, exhale 6 for five cycles. Anchor your presence.</p>
+        <label class="next" for="s2">Done →</label></div>
+
+      <div class="step p2"><span class="counter">2/12</span><span class="time">• 40 sec</span>
+        <h3>Define the Trait</h3><p>Write one sentence: “Today I practice <b>your path</b> through small actions.”</p>
+        <label class="next" for="s3">Done →</label></div>
+
+      <div class="step p3"><span class="counter">3/12</span><span class="time">• 45 sec</span>
+        <h3>One Tiny Rule</h3><p>Set a 2-minute rule you can do now (tidy desk, drink water, stretch).</p>
+        <label class="next" for="s4">Done →</label></div>
+
+      <div class="step p4"><span class="counter">4/12</span><span class="time">• 60 sec</span>
+        <h3>Obstacle → Plan</h3><p>Note your biggest distraction. Write one line: “If it appears, I will ___.”</p>
+        <label class="next" for="s5">Done →</label></div>
+
+      <div class="step p5"><span class="counter">5/12</span><span class="time">• 45 sec</span>
+        <h3>Micro Action</h3><p>Do a 90-second action related to your path (e.g., send a kind message, read 1 page).</p>
+        <label class="next" for="s6">Done →</label></div>
+
+      <div class="step p6"><span class="counter">6/12</span><span class="time">• 45 sec</span>
+        <h3>Identity Line</h3><p>Say quietly: “I am the kind of person who keeps small promises.”</p>
+        <label class="next" for="s7">Done →</label></div>
+
+      <div class="step p7"><span class="counter">7/12</span><span class="time">• 50 sec</span>
+        <h3>Gratitude x2</h3><p>Name two things you’re grateful for today. Feel them for a breath.</p>
+        <label class="next" for="s8">Done →</label></div>
+
+      <div class="step p8"><span class="counter">8/12</span><span class="time">• 50 sec</span>
+        <h3>Kindness Move</h3><p>Do one small kind act (text, thank-you, help). Keep it simple.</p>
+        <label class="next" for="s9">Done →</label></div>
+
+      <div class="step p9"><span class="counter">9/12</span><span class="time">• 55 sec</span>
+        <h3>Focus Sprint</h3><p>Clear just one tab/task. 2 minutes. No perfection — just finish.</p>
+        <label class="next" for="s10">Done →</label></div>
+
+      <div class="step p10"><span class="counter">10/12</span><span class="time">• 55 sec</span>
+        <h3>Resilience Reframe</h3><p>Turn a setback into a lesson: “From this, I learned to ___.”</p>
+        <label class="next" for="s11">Done →</label></div>
+
+      <div class="step p11"><span class="counter">11/12</span><span class="time">• 60 sec</span>
+        <h3>Future You</h3><p>Picture yourself after 30 days practicing this path. What’s different?</p>
+        <label class="next" for="s12">Done →</label></div>
+
+      <div class="step p12"><span class="counter">12/12</span><span class="time">• 60 sec</span>
+        <h3>Seal the Upgrade</h3><p>Choose a word to carry today: <em>Steady • Brave • Kind • Clear</em>. Breathe it in.</p>
+        <div class="sub" style="margin-top:8px">✨ Level up complete — You invested in your character today.</div>
+      </div>
+    </div>
+
+    <button type="reset" class="restart">Restart Journey</button>
+  </div>
+
+  <!-- PATH → headline visibility -->
+  <style>
+    #dis:checked ~ #session .is-dis{display:inline-block}
+    #cou:checked ~ #session .is-cou{display:inline-block}
+    #gra:checked ~ #session .is-gra{display:inline-block}
+    #kin:checked ~ #session .is-kin{display:inline-block}
+    #foc:checked ~ #session .is-foc{display:inline-block}
+    #res:checked ~ #session .is-res{display:inline-block}
+  </style>
+</form>
+</body>
+</html>
