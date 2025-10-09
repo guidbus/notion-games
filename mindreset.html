@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mind Reset</title>
+<style>
+:root{
+  --bg:#191919; --card:#0f1216; --ink:#eaf2f7; --muted:#9fb0c2;
+  --edge:#232b33; --pill:#10161c;
+  --grad:linear-gradient(90deg,#00ffa6,#7cc6ff,#ffd36e);
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:Inter,system-ui,Roboto;display:flex;justify-content:center;align-items:center;overflow:hidden;
+}
+.app{width:min(96vw,860px)}
+h1{text-align:center;font-size:28px;margin:0 0 10px}
+
+/* Card + pills */
+.card{background:var(--card);border:1px solid var(--edge);border-radius:16px;padding:20px 24px;box-shadow:0 18px 48px rgba(0,0,0,.55)}
+input[type=radio],input[type=checkbox]{position:absolute;opacity:0;pointer-events:none}
+.pill{cursor:pointer;display:inline-block;padding:8px 14px;margin:3px;border-radius:999px;background:var(--pill);border:1px solid #26303a;color:#cfe6dd;font-weight:600}
+input:checked+label.pill{background:var(--grad);color:#041915;border:none;font-weight:800}
+
+/* Screens */
+#start,#session{display:none}
+#go:checked ~ #session{display:block}
+#go:not(:checked) ~ #start{display:block}
+
+/* Emotion headline tint (all hidden by default; show only selected) */
+.tint{display:none;padding:6px 10px;border-radius:10px;font-weight:800;margin-bottom:10px}
+.is-anx{background:linear-gradient(90deg,#7cc6ff,#7cffe0);color:#04151b}
+.is-sad{background:linear-gradient(90deg,#a78bfa,#60a5fa);color:#140a26}
+.is-ang{background:linear-gradient(90deg,#ff8ab0,#ffd36e);color:#1b0a10}
+.is-ovt{background:linear-gradient(90deg,#22d3ee,#a7f3d0);color:#021311}
+.is-lon{background:linear-gradient(90deg,#c084fc,#f9a8d4);color:#170828}
+.is-hop{background:linear-gradient(90deg,#f472b6,#fde68a);color:#1b0913}
+.is-str{background:linear-gradient(90deg,#34d399,#a5f3fc);color:#00130e}
+.is-lost{background:linear-gradient(90deg,#93c5fd,#d8b4fe);color:#0a1024}
+.is-fear{background:linear-gradient(90deg,#67e8f9,#a78bfa);color:#0c1130}
+.is-guilt{background:linear-gradient(90deg,#fca5a5,#fde68a);color:#1f0b0b}
+.is-conf{background:linear-gradient(90deg,#a7f3d0,#93c5fd);color:#041a14}
+.is-tired{background:linear-gradient(90deg,#facc15,#a7f3d0);color:#1a1505}
+
+/* Steps (radio-driven wizard) */
+.steps{position:relative;min-height:250px;margin-top:12px}
+.step{display:none;animation:fade .35s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.step h3{margin:0 0 6px;font-size:17px}
+.step p{margin:0 0 10px;color:var(--muted);font-size:14px;line-height:1.5}
+.counter{position:absolute;top:10px;right:10px;font-size:12px;color:#a3b3c2}
+.time{font-size:12px;color:#a3b3c2;margin-left:6px}
+.next{display:inline-block;background:linear-gradient(90deg,#00ffa6,#7cc6ff);
+  color:#041b15;font-weight:800;padding:8px 12px;border-radius:10px;border:none;cursor:pointer}
+
+/* Flow mapping (15 steps) */
+#s1:checked  ~ .steps .p1,
+#s2:checked  ~ .steps .p2,
+#s3:checked  ~ .steps .p3,
+#s4:checked  ~ .steps .p4,
+#s5:checked  ~ .steps .p5,
+#s6:checked  ~ .steps .p6,
+#s7:checked  ~ .steps .p7,
+#s8:checked  ~ .steps .p8,
+#s9:checked  ~ .steps .p9,
+#s10:checked ~ .steps .p10,
+#s11:checked ~ .steps .p11,
+#s12:checked ~ .steps .p12,
+#s13:checked ~ .steps .p13,
+#s14:checked ~ .steps .p14,
+#s15:checked ~ .steps .p15{display:block}
+
+/* Buttons */
+.restart{width:100%;margin-top:14px;background:linear-gradient(90deg,#7cc6ff,#7cffe0);color:#041b15;border:none;border-radius:999px;padding:10px;font-weight:800;cursor:pointer}
+.note{text-align:center;font-size:14px;color:#9fb0c2;margin-bottom:10px}
+.finish{text-align:center;font-size:15px;margin-top:12px;color:#cfe6dd;font-weight:700}
+
+/* Compact */
+@media(max-width:520px){ .app{width:min(96vw,520px)} h1{font-size:22px} }
+</style>
+</head>
+<body>
+<form class="app">
+  <h1>Mind Reset</h1>
+
+  <!-- Emotions (more added) -->
+  <div style="text-align:center;margin-bottom:10px">
+    <input id="anx" name="emo" type="radio" checked><label for="anx" class="pill">Anxious</label>
+    <input id="sad" name="emo" type="radio"><label for="sad" class="pill">Sad</label>
+    <input id="ang" name="emo" type="radio"><label for="ang" class="pill">Angry</label>
+    <input id="ovt" name="emo" type="radio"><label for="ovt" class="pill">Overthinking</label>
+    <input id="lon" name="emo" type="radio"><label for="lon" class="pill">Lonely</label>
+    <input id="hop" name="emo" type="radio"><label for="hop" class="pill">Hopeless</label>
+    <input id="str" name="emo" type="radio"><label for="str" class="pill">Stressed</label>
+    <input id="lost" name="emo" type="radio"><label for="lost" class="pill">Lost</label>
+    <input id="fear" name="emo" type="radio"><label for="fear" class="pill">Fearful</label>
+    <input id="guilt" name="emo" type="radio"><label for="guilt" class="pill">Guilty</label>
+    <input id="conf" name="emo" type="radio"><label for="conf" class="pill">Confused</label>
+    <input id="tired" name="emo" type="radio"><label for="tired" class="pill">Tired</label>
+  </div>
+
+  <!-- Start / Session Toggle -->
+  <input id="go" type="checkbox">
+
+  <!-- Start Screen -->
+  <div id="start" class="card">
+    <div class="note"><b>Patience builds everything.</b> Calm, clarity, and success grow when you slow down, breathe, and move one small step at a time.</div>
+    <label for="go" class="pill" style="background:var(--grad);color:#041915;font-weight:800;margin-top:10px;display:inline-block">Start Session →</label>
+  </div>
+
+  <!-- Session -->
+  <div id="session" class="card">
+    <!-- Emotion headline (only selected shows) -->
+    <div class="tint is-anx">Calm plan for Anxiety</div>
+    <div class="tint is-sad">Gentle plan for Sadness</div>
+    <div class="tint is-ang">Cooling plan for Anger</div>
+    <div class="tint is-ovt">Clarity plan for Overthinking</div>
+    <div class="tint is-lon">Warm plan for Loneliness</div>
+    <div class="tint is-hop">Light plan for Hopelessness</div>
+    <div class="tint is-str">Ease plan for Stress</div>
+    <div class="tint is-lost">Guiding plan for Feeling Lost</div>
+    <div class="tint is-fear">Steady plan for Fear</div>
+    <div class="tint is-guilt">Soft plan for Guilt</div>
+    <div class="tint is-conf">Clear plan for Confusion</div>
+    <div class="tint is-tired">Gentle plan for Tiredness</div>
+
+    <!-- 15-step radio flow (RESET works because form) -->
+    <input type="radio" name="step" id="s1" checked>
+    <input type="radio" name="step" id="s2">
+    <input type="radio" name="step" id="s3">
+    <input type="radio" name="step" id="s4">
+    <input type="radio" name="step" id="s5">
+    <input type="radio" name="step" id="s6">
+    <input type="radio" name="step" id="s7">
+    <input type="radio" name="step" id="s8">
+    <input type="radio" name="step" id="s9">
+    <input type="radio" name="step" id="s10">
+    <input type="radio" name="step" id="s11">
+    <input type="radio" name="step" id="s12">
+    <input type="radio" name="step" id="s13">
+    <input type="radio" name="step" id="s14">
+    <input type="radio" name="step" id="s15">
+
+    <div class="steps">
+      <div class="step p1"><span class="counter">1/15</span><span class="time">• 30 sec</span><h3>1) Breathe Deeply</h3><p>Inhale 4 • Hold 2 • Exhale 6 • Hold 2. Let your shoulders drop.</p><label for="s2" class="next">Done →</label></div>
+      <div class="step p2"><span class="counter">2/15</span><span class="time">• 35 sec</span><h3>2) Relax Your Body</h3><p>Unclench jaw, loosen neck, soften hands and belly.</p><label for="s3" class="next">Done →</label></div>
+      <div class="step p3"><span class="counter">3/15</span><span class="time">• 40 sec</span><h3>3) Ground with Senses</h3><p>Name 3 colours, 2 shapes, 1 sound around you.</p><label for="s4" class="next">Done →</label></div>
+      <div class="step p4"><span class="counter">4/15</span><span class="time">• 45 sec</span><h3>4) Name the Feeling</h3><p>Say: “I feel anxious / sad / angry / lost — and that’s okay.”</p><label for="s5" class="next">Done →</label></div>
+      <div class="step p5"><span class="counter">5/15</span><span class="time">• 45 sec</span><h3>5) Accept the Moment</h3><p>You don’t need to fix everything now. Breathe and be.</p><label for="s6" class="next">Done →</label></div>
+      <div class="step p6"><span class="counter">6/15</span><span class="time">• 50 sec</span><h3>6) Reframe Gently</h3><p>“I can handle this one small step at a time.”</p><label for="s7" class="next">Done →</label></div>
+      <div class="step p7"><span class="counter">7/15</span><span class="time">• 55 sec</span><h3>7) Micro-Relax</h3><p>Close eyes 5 sec • open slowly • soften forehead.</p><label for="s8" class="next">Done →</label></div>
+      <div class="step p8"><span class="counter">8/15</span><span class="time">• 60 sec</span><h3>8) Hydrate or Stretch</h3><p>Small sip of water or shoulder roll x5.</p><label for="s9" class="next">Done →</label></div>
+      <div class="step p9"><span class="counter">9/15</span><span class="time">• 60 sec</span><h3>9) Tiny Win</h3><p>Recall one thing you did right today (even small).</p><label for="s10" class="next">Done →</label></div>
+      <div class="step p10"><span class="counter">10/15</span><span class="time">• 65 sec</span><h3>10) Focus Word</h3><p>Choose: Calm • Strength • Hope • Light — breathe it in.</p><label for="s11" class="next">Done →</label></div>
+      <div class="step p11"><span class="counter">11/15</span><span class="time">• 70 sec</span><h3>11) Body Scan</h3><p>Notice one area that feels okay; let it spread.</p><label for="s12" class="next">Done →</label></div>
+      <div class="step p12"><span class="counter">12/15</span><span class="time">• 75 sec</span><h3>12) Long Exhale</h3><p>Exhale slightly longer than inhale for 5 breaths.</p><label for="s13" class="next">Done →</label></div>
+      <div class="step p13"><span class="counter">13/15</span><span class="time">• 80 sec</span><h3>13) Gentle Kindness</h3><p>Tell yourself: “I’m doing my best, and that is enough.”</p><label for="s14" class="next">Done →</label></div>
+      <div class="step p14"><span class="counter">14/15</span><span class="time">• 85 sec</span><h3>14) Next Tiny Action</h3><p>Decide one 2-minute task you’ll start after this.</p><label for="s15" class="next">Done →</label></div>
+      <div class="step p15"><span class="counter">15/15</span><span class="time">• 90 sec</span><h3>15) Close with Calm</h3><p>Three slow breaths and a soft smile. Carry your word.</p><div class="finish">✨ Session Complete — You are calmer and clearer.</div></div>
+    </div>
+
+    <button type="reset" class="restart">Restart Session</button>
+  </div>
+
+  <!-- Emotion → headline visibility -->
+  <style>
+    /* show only the selected emotion's tint */
+    #anx:checked  ~ #session .is-anx{display:inline-block}
+    #sad:checked  ~ #session .is-sad{display:inline-block}
+    #ang:checked  ~ #session .is-ang{display:inline-block}
+    #ovt:checked  ~ #session .is-ovt{display:inline-block}
+    #lon:checked  ~ #session .is-lon{display:inline-block}
+    #hop:checked  ~ #session .is-hop{display:inline-block}
+    #str:checked  ~ #session .is-str{display:inline-block}
+    #lost:checked ~ #session .is-lost{display:inline-block}
+    #fear:checked ~ #session .is-fear{display:inline-block}
+    #guilt:checked~ #session .is-guilt{display:inline-block}
+    #conf:checked ~ #session .is-conf{display:inline-block}
+    #tired:checked~ #session .is-tired{display:inline-block}
+  </style>
+</form>
+</body>
+</html>
