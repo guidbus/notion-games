@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
+<title>Global GK Pro — Multi Category</title>
+<style>
+:root{
+  --bg:#191919; --card:#0f1216; --ink:#eaf2f7; --muted:#9fb0c2;
+  --accent:#00ffa6; --good:#22c55e; --bad:#ff5f5f; --edge:#21262d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto;overflow:hidden}
+#root{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+#scaleWrap{transform-origin:top center}
+
+/* UI */
+.app{width:min(96vw,760px)}
+h1{margin:0 0 10px;font-size:20px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.badge{background:#121820;border:1px solid #1c222a;border-radius:10px;padding:6px 10px;font-weight:800;color:#cfe6dd}
+button,select{background:#12161c;border:1px solid var(--edge);color:var(--ink);border-radius:10px;padding:8px 12px;cursor:pointer}
+button.primary{background:var(--accent);border:none;color:#052018;font-weight:900}
+button:disabled{opacity:.55;cursor:not-allowed}
+.card{background:var(--card);border:1px solid var(--edge);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.55);padding:16px}
+
+/* Quiz */
+.q{font-size:18px;margin:10px 0}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.opt{border:1px solid #26303a;background:#12161c;border-radius:12px;padding:10px 12px;text-align:left}
+.opt.kb::before{content:attr(data-kb);display:inline-block;width:20px;height:20px;border-radius:6px;
+  background:#0d1116;border:1px solid #1e252c;color:#cdd7e3;font-weight:800;line-height:20px;text-align:center;margin-right:8px}
+.opt:hover{border-color:#34414f}
+.opt.correct{border-color:#1f7f4a;background:rgba(34,197,94,.12)}
+.opt.wrong{border-color:#7f2b2b;background:rgba(255,95,95,.12)}
+.meta{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-size:13px}
+.progress{height:8px;background:#141a20;border:1px solid #1f2730;border-radius:6px;overflow:hidden}
+.fill{height:100%;background:linear-gradient(90deg,#00ffa6,#2dd4bf)}
+.feedback{margin-top:8px;font-size:14px}
+.feedback.good{color:var(--good)} .feedback.bad{color:var(--bad)}
+.center{display:flex;justify-content:center;gap:10px;margin-top:12px}
+.small{font-size:12px;color:#9aabbc;text-align:center;margin-top:6px}
+
+/* compact embed */
+.compact h1{font-size:16px;margin-bottom:6px}
+.compact .app{width:min(96vw,620px)}
+.compact .card{padding:12px}
+.compact .q{font-size:16px}
+.compact .opt{padding:8px 10px;font-size:14px}
+.compact .meta{font-size:12px}
+.compact .small{font-size:11px}
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="scaleWrap">
+    <div class="app" id="app">
+      <h1>Global GK Pro 🌍 — Multi Category</h1>
+
+      <div class="row">
+        <span class="badge">Category</span>
+        <select id="cat">
+          <option value="mixed" selected>Mixed</option>
+          <option value="science">Science</option>
+          <option value="sports">Sports</option>
+          <option value="history">History</option>
+          <option value="technology">Technology</option>
+          <option value="geography">Geography</option>
+        </select>
+
+        <span class="badge">Mode</span>
+        <select id="mode">
+          <option value="normal">Normal</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+
+        <span class="badge">Questions</span>
+        <select id="qCount">
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="40" selected>40</option>
+        </select>
+
+        <span class="badge">Timer</span>
+        <select id="timerSel">
+          <option value="10">10s / Q</option>
+          <option value="12" selected>12s / Q</option>
+          <option value="15">15s / Q</option>
+        </select>
+
+        <button id="start" class="primary">Start</button>
+        <span class="badge" id="best">Best: —</span>
+      </div>
+
+      <div class="card" id="game" style="display:none">
+        <div class="q" id="qText">Question appears here</div>
+        <div class="opts" id="opts"></div>
+
+        <div class="meta">
+          <div><span id="catTag">Mixed</span> • <span id="modeTag">Medium</span> • Q <span id="idx">1</span>/<span id="total">40</span> • Score: <b id="score">0</b></div>
+          <div class="progress" style="width:48%"><div class="fill" id="bar" style="width:100%"></div></div>
+        </div>
+
+        <div class="feedback" id="fb"></div>
+
+        <div class="center">
+          <button id="skip">Skip</button>
+          <button id="next" disabled>Next</button>
+        </div>
+        <div class="small">Use keys <b>1–4</b> to answer. Notion-safe (no scrollbars).</div>
+      </div>
+
+      <div class="card" id="end" style="display:none">
+        <div style="font-size:18px;margin-bottom:8px">Session complete 🎉</div>
+        <div class="row">
+          <span class="badge">Score: <b id="finalScore">0</b></span>
+          <span class="badge">Best: <b id="finalBest">—</b></span>
+          <span class="badge">Accuracy: <b id="acc">0%</b></span>
+        </div>
+        <div class="center"><button id="again" class="primary">Play Again</button></div>
+        <div class="small">Tip: Try Hard mode for a tougher challenge 🔥</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ----- Embed helpers: compact + auto-scale (no scroll) ----- */
+(function(){
+  const inIframe=(()=>{try{return window.self!==window.top}catch(e){return true}})();
+  if(inIframe){ document.documentElement.classList.add('compact'); document.body.classList.add('compact'); }
+})();
+function fitScale(){
+  const app=document.getElementById('app'), wrap=document.getElementById('scaleWrap');
+  wrap.style.transform='scale(1)';
+  const h=app.getBoundingClientRect().height, wh=window.innerHeight;
+  wrap.style.transform='scale('+Math.min(1,(wh-8)/h)+')';
+}
+window.addEventListener('load',fitScale);
+window.addEventListener('resize',fitScale);
+
+/* ---------------- Question Bank ----------------
+   Compact format: {cat, mode, q, a}
+   Wrong options are auto-picked from other "a" values in the SAME category.
+*/
+const BANK = [
+  /* ===== SCIENCE (≈40) ===== */
+  {cat:'science',mode:'normal',q:'Water boils at what temperature at sea level?',a:'100°C'},
+  {cat:'science',mode:'normal',q:'Which gas do plants absorb for photosynthesis?',a:'Carbon dioxide'},
+  {cat:'science',mode:'normal',q:'Human universal donor blood type?',a:'O negative'},
+  {cat:'science',mode:'normal',q:'Main organ of the circulatory system?',a:'Heart'},
+  {cat:'science',mode:'normal',q:'Earth’s primary source of energy?',a:'The Sun'},
+  {cat:'science',mode:'normal',q:'The basic unit of life is the…',a:'Cell'},
+  {cat:'science',mode:'normal',q:'What do bees collect from flowers?',a:'Nectar'},
+  {cat:'science',mode:'normal',q:'H2O is the chemical formula for…',a:'Water'},
+  {cat:'science',mode:'normal',q:'Which sense organ detects light?',a:'Eye'},
+  {cat:'science',mode:'normal',q:'The process of liquid turning to gas is…',a:'Evaporation'},
+  {cat:'science',mode:'medium',q:'Vitamin produced in skin via sunlight?',a:'Vitamin D'},
+  {cat:'science',mode:'medium',q:'Unit of force in SI?',a:'Newton'},
+  {cat:'science',mode:'medium',q:'Smallest bone in human body?',a:'Stapes'},
+  {cat:'science',mode:'medium',q:'Green pigment in plants is called…',a:'Chlorophyll'},
+  {cat:'science',mode:'medium',q:'Speed of light (approx) in vacuum?',a:'300,000 km/s'},
+  {cat:'science',mode:'medium',q:'Gas making up ~78% of air?',a:'Nitrogen'},
+  {cat:'science',mode:'medium',q:'Largest internal organ in humans?',a:'Liver'},
+  {cat:'science',mode:'medium',q:'DNA stands for…',a:'Deoxyribonucleic acid'},
+  {cat:'science',mode:'medium',q:'S.I. unit of electric current?',a:'Ampere'},
+  {cat:'science',mode:'medium',q:'Process by which plants lose water vapour?',a:'Transpiration'},
+  {cat:'science',mode:'hard',q:'Particle mediating electromagnetic force?',a:'Photon'},
+  {cat:'science',mode:'hard',q:'pH of human blood is around?',a:'7.4'},
+  {cat:'science',mode:'hard',q:'Element with atomic number 6?',a:'Carbon'},
+  {cat:'science',mode:'hard',q:'Which law: F=ma?',a:'Newton’s Second Law'},
+  {cat:'science',mode:'hard',q:'Most abundant element in universe?',a:'Hydrogen'},
+  {cat:'science',mode:'hard',q:'Enzyme that replicates DNA?',a:'DNA polymerase'},
+  {cat:'science',mode:'hard',q:'Organism with no nucleus is called?',a:'Prokaryote'},
+  {cat:'science',mode:'hard',q:'Aurora borealis occurs in which layer?',a:'Thermosphere'},
+  {cat:'science',mode:'hard',q:'Unit for frequency?',a:'Hertz'},
+  {cat:'science',mode:'hard',q:'Antibody-producing cells are…',a:'B lymphocytes'},
+  {cat:'science',mode:'normal',q:'What gas do humans exhale mainly?',a:'Carbon dioxide'},
+  {cat:'science',mode:'medium',q:'What is the powerhouse of the cell?',a:'Mitochondria'},
+  {cat:'science',mode:'hard',q:'Change of solid directly to gas is…',a:'Sublimation'},
+  {cat:'science',mode:'normal',q:'Mammals feed their young with…',a:'Milk'},
+  {cat:'science',mode:'medium',q:'Instrument to measure atmospheric pressure?',a:'Barometer'},
+  {cat:'science',mode:'hard',q:'Law of conservation of mass by…',a:'Lavoisier'},
+  {cat:'science',mode:'medium',q:'Metal that is liquid at room temp (common)?',a:'Mercury'},
+  {cat:'science',mode:'hard',q:'Bond formed by shared electron pairs?',a:'Covalent bond'},
+  {cat:'science',mode:'normal',q:'The Earth orbits the…',a:'Sun'},
+  {cat:'science',mode:'medium',q:'Nearest star to Earth (besides Sun)?',a:'Proxima Centauri'},
+
+  /* ===== SPORTS (≈40) ===== */
+  {cat:'sports',mode:'normal',q:'Players per side in football (soccer)?',a:'11'},
+  {cat:'sports',mode:'normal',q:'Grand Slam on grass?',a:'Wimbledon'},
+  {cat:'sports',mode:'normal',q:'Basketball hoop points for long-range arc?',a:'3'},
+  {cat:'sports',mode:'normal',q:'Olympics held every ___ years.',a:'4'},
+  {cat:'sports',mode:'normal',q:'Cricket: max runs off one legal ball?',a:'6'},
+  {cat:'sports',mode:'normal',q:'Tennis score after deuce and win 1 point?',a:'Advantage'},
+  {cat:'sports',mode:'normal',q:'Sport with a puck on ice?',a:'Ice hockey'},
+  {cat:'sports',mode:'normal',q:'Rugby try is worth how many points?',a:'5'},
+  {cat:'sports',mode:'normal',q:'Country that hosts “Tour de France”?',a:'France'},
+  {cat:'sports',mode:'normal',q:'NBA stands for?',a:'National Basketball Association'},
+  {cat:'sports',mode:'medium',q:'Marathon distance (official)?',a:'42.195 km'},
+  {cat:'sports',mode:'medium',q:'“Hand of God” World Cup year?',a:'1986'},
+  {cat:'sports',mode:'medium',q:'Number of squares on a chessboard?',a:'64'},
+  {cat:'sports',mode:'medium',q:'Badminton shuttle is also called?',a:'Shuttlecock'},
+  {cat:'sports',mode:'medium',q:'Baseball: three strikes equals a…',a:'Strikeout'},
+  {cat:'sports',mode:'medium',q:'Tennis surfaces include clay, grass and…',a:'Hard court'},
+  {cat:'sports',mode:'medium',q:'Cricket: fielding position behind wicket?',a:'Wicket-keeper'},
+  {cat:'sports',mode:'medium',q:'F1: fastest lap gets bonus of ___ points (modern).',a:'1'},
+  {cat:'sports',mode:'medium',q:'Olympic symbol has how many rings?',a:'5'},
+  {cat:'sports',mode:'medium',q:'Table tennis: points to win a game?',a:'11'},
+  {cat:'sports',mode:'hard',q:'Volleyball: players on court per team?',a:'6'},
+  {cat:'sports',mode:'hard',q:'Snooker: points for potting the black?',a:'7'},
+  {cat:'sports',mode:'hard',q:'Tennis: tie-break usually played at…',a:'6–6'},
+  {cat:'sports',mode:'hard',q:'Rugby union team on field?',a:'15'},
+  {cat:'sports',mode:'hard',q:'Football: offside judged at moment of…',a:'Pass'},
+  {cat:'sports',mode:'hard',q:'Cricket pitch length?',a:'22 yards'},
+  {cat:'sports',mode:'hard',q:'Basketball: seconds in a shot clock (NBA)?',a:'24'},
+  {cat:'sports',mode:'hard',q:'Fencing weapons: foil, épée, and…',a:'Sabre'},
+  {cat:'sports',mode:'hard',q:'Tennis: Grand Slams in a calendar year called?',a:'Calendar Slam'},
+  {cat:'sports',mode:'normal',q:'Sport using a bow and arrow?',a:'Archery'},
+  {cat:'sports',mode:'normal',q:'Sport with pommel horse and rings?',a:'Gymnastics'},
+  {cat:'sports',mode:'medium',q:'Golf: score one under par on a hole?',a:'Birdie'},
+  {cat:'sports',mode:'hard',q:'Soccer: penalty mark distance from goal?',a:'12 yards'},
+  {cat:'sports',mode:'medium',q:'Tennis: 0 is called…',a:'Love'},
+  {cat:'sports',mode:'normal',q:'Sport played at Wimbledon?',a:'Tennis'},
+  {cat:'sports',mode:'medium',q:'Athletics: 100m race is a…',a:'Sprint'},
+  {cat:'sports',mode:'normal',q:'Winter sport on skis downhill?',a:'Alpine skiing'},
+
+  /* ===== HISTORY (≈40) ===== */
+  {cat:'history',mode:'normal',q:'First President of the USA?',a:'George Washington'},
+  {cat:'history',mode:'normal',q:'Great Wall is in which country?',a:'China'},
+  {cat:'history',mode:'normal',q:'Pyramids of Giza belong to which civilization?',a:'Ancient Egypt'},
+  {cat:'history',mode:'normal',q:'City formerly known as Constantinople?',a:'Istanbul'},
+  {cat:'history',mode:'normal',q:'Who wrote the “I Have a Dream” speech?',a:'Martin Luther King Jr.'},
+  {cat:'history',mode:'normal',q:'Explorer who reached the Americas in 1492?',a:'Christopher Columbus'},
+  {cat:'history',mode:'normal',q:'Ancient games held in Olympia were…',a:'Olympic Games'},
+  {cat:'history',mode:'normal',q:'The Titanic sank in year…',a:'1912'},
+  {cat:'history',mode:'normal',q:'Mona Lisa painter?',a:'Leonardo da Vinci'},
+  {cat:'history',mode:'normal',q:'Roman arena for gladiators?',a:'Colosseum'},
+  {cat:'history',mode:'medium',q:'WWII ended in which year?',a:'1945'},
+  {cat:'history',mode:'medium',q:'Magna Carta was signed in…',a:'England'},
+  {cat:'history',mode:'medium',q:'Who discovered penicillin?',a:'Alexander Fleming'},
+  {cat:'history',mode:'medium',q:'The Cold War mainly between which two powers?',a:'USA and USSR'},
+  {cat:'history',mode:'medium',q:'French military leader crowned Emperor 1804?',a:'Napoleon Bonaparte'},
+  {cat:'history',mode:'medium',q:'The Black Death was a…',a:'Plague'},
+  {cat:'history',mode:'medium',q:'Stonehenge is located in…',a:'England'},
+  {cat:'history',mode:'medium',q:'Printing press inventor?',a:'Johannes Gutenberg'},
+  {cat:'history',mode:'medium',q:'Language of the New Testament originally?',a:'Greek'},
+  {cat:'history',mode:'medium',q:'First man on the Moon?',a:'Neil Armstrong'},
+  {cat:'history',mode:'hard',q:'The Rosetta Stone decoded which script?',a:'Egyptian hieroglyphs'},
+  {cat:'history',mode:'hard',q:'Battle of Hastings year?',a:'1066'},
+  {cat:'history',mode:'hard',q:'City destroyed by Vesuvius in 79 AD?',a:'Pompeii'},
+  {cat:'history',mode:'hard',q:'Treaty ending WWI with Germany?',a:'Treaty of Versailles'},
+  {cat:'history',mode:'hard',q:'Macedonian king who created vast empire?',a:'Alexander the Great'},
+  {cat:'history',mode:'hard',q:'The Silk Road linked China with…',a:'The Mediterranean'},
+  {cat:'history',mode:'hard',q:'The Renaissance began in which country?',a:'Italy'},
+  {cat:'history',mode:'hard',q:'The Reformation leader who wrote 95 Theses?',a:'Martin Luther'},
+  {cat:'history',mode:'hard',q:'Sumerians lived in…',a:'Mesopotamia'},
+  {cat:'history',mode:'hard',q:'Hammurabi is known for his…',a:'Code of laws'},
+  {cat:'history',mode:'normal',q:'Empire ruled by Pharaohs?',a:'Egyptian Empire'},
+  {cat:'history',mode:'medium',q:'Explorer who circumnavigated the globe (expedition)?',a:'Magellan’s expedition'},
+  {cat:'history',mode:'hard',q:'The “Iron Curtain” described division of…',a:'Europe'},
+  {cat:'history',mode:'medium',q:'Who completed the theory of relativity’s field eqs?',a:'Albert Einstein'},
+  {cat:'history',mode:'normal',q:'Ancient writing on clay tablets called…',a:'Cuneiform'},
+  {cat:'history',mode:'medium',q:'World’s oldest continuous monarchy (often cited)?',a:'Japan'},
+
+  /* ===== TECHNOLOGY (≈40) ===== */
+  {cat:'technology',mode:'normal',q:'“CPU” stands for…',a:'Central Processing Unit'},
+  {cat:'technology',mode:'normal',q:'Company that develops Android OS?',a:'Google'},
+  {cat:'technology',mode:'normal',q:'Shortcut Ctrl+C usually means?',a:'Copy'},
+  {cat:'technology',mode:'normal',q:'Primary language of the web?',a:'HTML'},
+  {cat:'technology',mode:'normal',q:'Device to route packets on a network?',a:'Router'},
+  {cat:'technology',mode:'normal',q:'Portable computer is called a…',a:'Laptop'},
+  {cat:'technology',mode:'normal',q:'Image format with transparency widely used?',a:'PNG'},
+  {cat:'technology',mode:'normal',q:'Cloud storage by Apple?',a:'iCloud'},
+  {cat:'technology',mode:'normal',q:'Unit of digital information (smallest)?',a:'Bit'},
+  {cat:'technology',mode:'normal',q:'Operating system by Microsoft?',a:'Windows'},
+  {cat:'technology',mode:'medium',q:'HTTP stands for…',a:'HyperText Transfer Protocol'},
+  {cat:'technology',mode:'medium',q:'SSD stands for…',a:'Solid State Drive'},
+  {cat:'technology',mode:'medium',q:'Language created by Guido van Rossum?',a:'Python'},
+  {cat:'technology',mode:'medium',q:'Version control system “Git” creator?',a:'Linus Torvalds'},
+  {cat:'technology',mode:'medium',q:'Database query language is…',a:'SQL'},
+  {cat:'technology',mode:'medium',q:'GPU is mainly for…',a:'Graphics processing'},
+  {cat:'technology',mode:'medium',q:'JavaScript runs primarily in the…',a:'Browser'},
+  {cat:'technology',mode:'medium',q:'File sharing peer-to-peer tech?',a:'BitTorrent'},
+  {cat:'technology',mode:'medium',q:'Open-source OS based on Linux kernel?',a:'Linux'},
+  {cat:'technology',mode:'medium',q:'LAN stands for…',a:'Local Area Network'},
+  {cat:'technology',mode:'hard',q:'Binary number 1010 equals decimal?',a:'10'},
+  {cat:'technology',mode:'hard',q:'Command to upload local commits in Git?',a:'git push'},
+  {cat:'technology',mode:'hard',q:'Moore’s law relates to growth in…',a:'Transistor count'},
+  {cat:'technology',mode:'hard',q:'Asymmetrical encryption example?',a:'RSA'},
+  {cat:'technology',mode:'hard',q:'Containerization platform widely used?',a:'Docker'},
+  {cat:'technology',mode:'hard',q:'HTTP default port?',a:'80'},
+  {cat:'technology',mode:'hard',q:'DNS translates domain names to…',a:'IP addresses'},
+  {cat:'technology',mode:'hard',q:'Lossless audio format commonly used?',a:'FLAC'},
+  {cat:'technology',mode:'hard',q:'Framework for machine learning by Google?',a:'TensorFlow'},
+  {cat:'technology',mode:'hard',q:'Primary key constraint ensures…',a:'Uniqueness'},
+  {cat:'technology',mode:'normal',q:'Wireless security protocol (newer)?',a:'WPA3'},
+  {cat:'technology',mode:'medium',q:'API stands for…',a:'Application Programming Interface'},
+  {cat:'technology',mode:'hard',q:'Time complexity of quicksort average?',a:'O(n log n)'},
+  {cat:'technology',mode:'medium',q:'NoSQL document database example?',a:'MongoDB'},
+  {cat:'technology',mode:'normal',q:'Spreadsheet software by Google?',a:'Sheets'},
+  {cat:'technology',mode:'medium',q:'Markup for styling web pages?',a:'CSS'},
+
+  /* ===== GEOGRAPHY (≈40) ===== */
+  {cat:'geography',mode:'normal',q:'Capital of Japan?',a:'Tokyo'},
+  {cat:'geography',mode:'normal',q:'Largest ocean?',a:'Pacific Ocean'},
+  {cat:'geography',mode:'normal',q:'Sahara is a ___',a:'Desert'},
+  {cat:'geography',mode:'normal',q:'Continent with the most countries?',a:'Africa'},
+  {cat:'geography',mode:'normal',q:'Longest river by most measures?',a:'Nile'},
+  {cat:'geography',mode:'normal',q:'Highest mountain above sea level?',a:'Mount Everest'},
+  {cat:'geography',mode:'normal',q:'The Amazon is a famous…',a:'Rainforest'},
+  {cat:'geography',mode:'normal',q:'Country known as the Land of the Rising Sun?',a:'Japan'},
+  {cat:'geography',mode:'normal',q:'Capital of Australia?',a:'Canberra'},
+  {cat:'geography',mode:'normal',q:'Largest country by area?',a:'Russia'},
+  {cat:'geography',mode:'medium',q:'River through Paris?',a:'Seine'},
+  {cat:'geography',mode:'medium',q:'Country with most time zones (incl. territories)?',a:'France'},
+  {cat:'geography',mode:'medium',q:'Capital of Canada?',a:'Ottawa'},
+  {cat:'geography',mode:'medium',q:'Iberian Peninsula countries?',a:'Spain and Portugal'},
+  {cat:'geography',mode:'medium',q:'Lake Baikal is located in…',a:'Russia'},
+  {cat:'geography',mode:'medium',q:'Currency of the UK?',a:'Pound sterling'},
+  {cat:'geography',mode:'medium',q:'Capital of South Korea?',a:'Seoul'},
+  {cat:'geography',mode:'medium',q:'Strait between Europe and Africa?',a:'Gibraltar'},
+  {cat:'geography',mode:'medium',q:'Island country in the Indian Ocean famous for tea?',a:'Sri Lanka'},
+  {cat:'geography',mode:'medium',q:'Capital of Brazil?',a:'Brasília'},
+  {cat:'geography',mode:'hard',q:'Capital of Kazakhstan?',a:'Astana'},
+  {cat:'geography',mode:'hard',q:'Which country owns Greenland?',a:'Denmark'},
+  {cat:'geography',mode:'hard',q:'Capital of Ethiopia?',a:'Addis Ababa'},
+  {cat:'geography',mode:'hard',q:'The Great Rift Valley runs mainly through…',a:'East Africa'},
+  {cat:'geography',mode:'hard',q:'Highest waterfall (uninterrupted drop)?',a:'Angel Falls'},
+  {cat:'geography',mode:'hard',q:'The Danube empties into the…',a:'Black Sea'},
+  {cat:'geography',mode:'hard',q:'Desert covering much of Mongolia and China?',a:'Gobi'},
+  {cat:'geography',mode:'hard',q:'Country with capital “Wellington”?',a:'New Zealand'},
+  {cat:'geography',mode:'hard',q:'Volcanic island country in North Atlantic?',a:'Iceland'},
+  {cat:'geography',mode:'hard',q:'Mount Kilimanjaro is in…',a:'Tanzania'},
+];
+
+/* ---------------- State / UI ---------------- */
+const $=s=>document.querySelector(s);
+const ui={
+  cat:$('#cat'), mode:$('#mode'), qCount:$('#qCount'), timerSel:$('#timerSel'), best:$('#best'), start:$('#start'),
+  game:$('#game'), end:$('#end'), qText:$('#qText'), opts:$('#opts'),
+  idx:$('#idx'), total:$('#total'), score:$('#score'), bar:$('#bar'), fb:$('#fb'),
+  catTag:$('#catTag'), modeTag:$('#modeTag'),
+  skip:$('#skip'), next:$('#next'),
+  finalScore:$('#finalScore'), finalBest:$('#finalBest'), acc:$('#acc'),
+  again:$('#again')
+};
+
+let session=[], idx=0, score=0, correct=0, timePerQ=12, ticking=null;
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function bestKey(){ return `gk_best_${ui.cat.value}_${ui.mode.value}`; }
+const loadBest=()=> +localStorage.getItem(bestKey()) || null;
+const saveBest=x=> localStorage.setItem(bestKey(), x);
+function setBest(){ const b=loadBest(); ui.best.textContent='Best: '+(b?b:'—'); }
+
+/* Build pool by cat+mode (Mixed pulls across cats, same mode) */
+function buildPool(cat, mode){
+  const base = (cat==='mixed') ? BANK.filter(x=>x.mode===mode) : BANK.filter(x=>x.cat===cat && x.mode===mode);
+  return shuffle(base.slice());
+}
+
+/* Get distractors from same category answers (to keep options realistic) */
+function getDistractors(cat, mode, answer){
+  const pool = (cat==='mixed')
+    ? BANK.filter(x=>x.mode===mode && x.a!==answer).map(x=>x.a)
+    : BANK.filter(x=>x.cat===cat && x.a!==answer).map(x=>x.a);
+  return shuffle(pool).slice(0,3);
+}
+
+ui.start.onclick=()=>{
+  const cat=ui.cat.value, mode=ui.mode.value, total=+ui.qCount.value;
+  timePerQ=+ui.timerSel.value;
+  session = buildPool(cat, mode).slice(0,total);
+  idx=0; score=0; correct=0;
+  ui.total.textContent=total; ui.score.textContent=score;
+  ui.catTag.textContent = cat.charAt(0).toUpperCase()+cat.slice(1);
+  ui.modeTag.textContent = mode.charAt(0).toUpperCase()+mode.slice(1);
+  setBest();
+  ui.game.style.display='block'; ui.end.style.display='none';
+  renderQ(); fitScale();
+};
+
+function renderQ(){
+  clearTick(); ui.fb.textContent=''; ui.fb.className='feedback'; ui.next.disabled=true;
+  const item=session[idx]; ui.idx.textContent=idx+1; ui.qText.textContent=item.q;
+
+  const wrongs = getDistractors(ui.cat.value, ui.mode.value, item.a);
+  const choices = shuffle([item.a, ...wrongs]).slice(0,4);
+
+  ui.opts.innerHTML='';
+  choices.forEach((c,i)=>{
+    const b=document.createElement('button');
+    b.className='opt kb'; b.dataset.kb=i+1; b.innerHTML='<b>'+c+'</b>';
+    b.onclick=()=> choose(c,b,item.a);
+    ui.opts.appendChild(b);
+  });
+
+  startTimer(); fitScale();
+}
+
+function startTimer(){
+  ui.bar.style.width='100%';
+  const start=Date.now();
+  function frame(){
+    const remain=Math.max(0, timePerQ - (Date.now()-start)/1000);
+    ui.bar.style.width = (remain/timePerQ*100)+'%';
+    if(remain<=0) timeUp(); else ticking=requestAnimationFrame(frame);
+  }
+  ticking=requestAnimationFrame(frame);
+}
+function clearTick(){ if(ticking){ cancelAnimationFrame(ticking); ticking=null; } }
+function lock(){ [...ui.opts.children].forEach(b=> b.disabled=true); }
+
+function timeUp(){
+  clearTick(); lock();
+  const ans=session[idx].a;
+  ui.fb.textContent = '⏳ Time up! Correct: '+ans;
+  ui.fb.className='feedback bad';
+  ui.next.disabled=false; fitScale();
+}
+
+function choose(val, btn, ans){
+  clearTick(); lock();
+  if(val===ans){
+    btn.classList.add('correct');
+    ui.fb.textContent='✅ Correct!';
+    ui.fb.className='feedback good';
+    score+=10; correct++; ui.score.textContent=score;
+  }else{
+    btn.classList.add('wrong');
+    [...ui.opts.children].forEach(b=>{ if(b.textContent.trim()===ans) b.classList.add('correct'); });
+    ui.fb.textContent='❌ Wrong — Correct: '+ans;
+    ui.fb.className='feedback bad';
+  }
+  ui.next.disabled=false; fitScale();
+}
+
+ui.next.onclick=()=>{ idx++; if(idx>=session.length) endGame(); else renderQ(); };
+ui.skip.onclick=()=>{ clearTick(); lock(); const ans=session[idx].a;
+  ui.fb.textContent='↷ Skipped — Correct: '+ans; ui.fb.className='feedback bad'; ui.next.disabled=false; fitScale(); };
+
+window.addEventListener('keydown',e=>{
+  const k=e.key; if(ui.game.style.display==='none') return;
+  if(k>='1'&&k<='4'){ const i=+k-1; const b=ui.opts.children[i]; if(b&&!b.disabled) b.click(); }
+  if((k==='n'||k==='N') && !ui.next.disabled) ui.next.click();
+});
+
+function endGame(){
+  ui.game.style.display='none'; ui.end.style.display='block';
+  ui.finalScore.textContent=score;
+  const acc=Math.round(correct/session.length*100); ui.acc.textContent=acc+'%';
+  const prev=loadBest(); if(!prev || score>prev) saveBest(score);
+  ui.finalBest.textContent=loadBest();
+  fitScale();
+}
+ui.again.onclick=()=>{ ui.end.style.display='none'; ui.start.click(); };
+</script>
+</body>
+</html>
