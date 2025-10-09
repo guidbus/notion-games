@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
+<title>Logo Quiz — Global Brands</title>
+<style>
+:root{
+  --bg:#191919; --card:#0f1216; --ink:#eaf2f7; --muted:#9fb0c2;
+  --accent:#00ffa6; --good:#22c55e; --bad:#ff5f5f; --edge:#21262d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:Inter,system-ui,Segoe UI,Roboto;overflow:hidden} /* no page scroll */
+#root{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+#scaleWrap{transform-origin:top center}
+
+/* UI */
+.app{width:min(96vw,760px)}
+h1{margin:0 0 10px;font-size:20px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.badge{background:#121820;border:1px solid #1c222a;border-radius:10px;padding:6px 10px;font-weight:800;color:#cfe6dd}
+button,select{background:#12161c;border:1px solid var(--edge);color:var(--ink);border-radius:10px;padding:8px 12px;cursor:pointer}
+button.primary{background:var(--accent);border:none;color:#052018;font-weight:900}
+button:disabled{opacity:.55;cursor:not-allowed}
+.card{background:var(--card);border:1px solid var(--edge);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.55);padding:16px}
+
+/* Logo box */
+.logoBox{display:flex;align-items:center;justify-content:center;border:1px dashed #26303a;border-radius:14px;background:#0b0f14;padding:18px;margin-top:8px}
+.logoWrap{width:560px;max-width:100%;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;background:#0e141b;border-radius:12px;overflow:hidden}
+.logoWrap img{max-width:80%;max-height:80%;display:block;filter:drop-shadow(0 10px 26px rgba(0,0,0,.45));image-rendering:auto}
+
+/* Quiz */
+.q{font-size:18px;margin:10px 0}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.opt{border:1px solid #26303a;background:#12161c;border-radius:12px;padding:10px 12px;text-align:left}
+.opt.kb::before{content:attr(data-kb);display:inline-block;width:20px;height:20px;border-radius:6px;
+  background:#0d1116;border:1px solid #1e252c;color:#cdd7e3;font-weight:800;line-height:20px;text-align:center;margin-right:8px}
+.opt:hover{border-color:#34414f}
+.opt.correct{border-color:#1f7f4a;background:rgba(34,197,94,.12)}
+.opt.wrong{border-color:#7f2b2b;background:rgba(255,95,95,.12)}
+.meta{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-size:13px}
+.progress{height:8px;background:#141a20;border:1px solid #1f2730;border-radius:6px;overflow:hidden}
+.fill{height:100%;background:linear-gradient(90deg,#00ffa6,#2dd4bf)}
+.feedback{margin-top:8px;font-size:14px}
+.feedback.good{color:var(--good)} .feedback.bad{color:var(--bad)}
+.center{display:flex;justify-content:center;gap:10px;margin-top:12px}
+.small{font-size:12px;color:#9aabbc;text-align:center;margin-top:6px}
+
+/* compact embed */
+.compact h1{font-size:16px;margin-bottom:6px}
+.compact .app{width:min(96vw,620px)}
+.compact .card{padding:12px}
+.compact .logoWrap{aspect-ratio:4/3}
+.compact .q{font-size:16px}
+.compact .opt{padding:8px 10px;font-size:14px}
+.compact .meta{font-size:12px}
+.compact .small{font-size:11px}
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="scaleWrap">
+    <div class="app" id="app">
+      <h1>Logo Quiz 🌎 — Global Brands</h1>
+
+      <div class="row">
+        <span class="badge">Mode</span>
+        <select id="mode">
+          <option value="normal">Normal</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+
+        <span class="badge">Questions</span>
+        <select id="qCount">
+          <option value="10">10</option>
+          <option value="15" selected>15</option>
+          <option value="20">20</option>
+        </select>
+
+        <span class="badge">Timer</span>
+        <select id="timerSel">
+          <option value="10">10s / Q</option>
+          <option value="12" selected>12s / Q</option>
+          <option value="15">15s / Q</option>
+        </select>
+
+        <button id="start" class="primary">Start</button>
+        <span class="badge" id="best">Best: —</span>
+      </div>
+
+      <div class="card" id="game" style="display:none">
+        <div class="logoBox">
+          <div class="logoWrap">
+            <img id="logo" alt="Brand logo" loading="lazy" decoding="async">
+          </div>
+        </div>
+        <div class="q">Which brand is this?</div>
+        <div class="opts" id="opts"></div>
+
+        <div class="meta">
+          <div>Q <span id="idx">1</span>/<span id="total">15</span> • Score: <b id="score">0</b></div>
+          <div class="progress" style="width:48%"><div class="fill" id="bar" style="width:100%"></div></div>
+        </div>
+
+        <div class="feedback" id="fb"></div>
+
+        <div class="center">
+          <button id="skip">Skip</button>
+          <button id="next" disabled>Next</button>
+        </div>
+        <div class="small">Use keys <b>1–4</b> to answer. Real color logos via logo.clearbit.com. Notion-safe.</div>
+      </div>
+
+      <div class="card" id="end" style="display:none">
+        <div style="font-size:18px;margin-bottom:8px">Round complete 🎉</div>
+        <div class="row">
+          <span class="badge">Score: <b id="finalScore">0</b></span>
+          <span class="badge">Best: <b id="finalBest">—</b></span>
+          <span class="badge">Accuracy: <b id="acc">0%</b></span>
+        </div>
+        <div class="center"><button id="again" class="primary">Play Again</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ----- Embed helpers: compact + auto-scale (no scroll) ----- */
+(function(){
+  const inIframe=(()=>{try{return window.self!==window.top}catch(e){return true}})();
+  if(inIframe){ document.documentElement.classList.add('compact'); document.body.classList.add('compact'); }
+})();
+function fitScale(){
+  const app=document.getElementById('app'), wrap=document.getElementById('scaleWrap');
+  wrap.style.transform='scale(1)';
+  const h=app.getBoundingClientRect().height, wh=window.innerHeight;
+  wrap.style.transform='scale('+Math.min(1,(wh-8)/h)+')';
+}
+window.addEventListener('load',fitScale);
+window.addEventListener('resize',fitScale);
+
+/* -------- Global brand list (name + domain for logos) -------- */
+const BANK = {
+  normal: [
+    ['Google','google.com'], ['Apple','apple.com'], ['Microsoft','microsoft.com'], ['Amazon','amazon.com'],
+    ['YouTube','youtube.com'], ['Netflix','netflix.com'], ['Instagram','instagram.com'], ['Facebook','facebook.com'],
+    ['WhatsApp','whatsapp.com'], ['Twitter','twitter.com'], ['LinkedIn','linkedin.com'], ['Spotify','spotify.com'],
+    ['Adobe','adobe.com'], ['Samsung','samsung.com'], ['Coca-Cola','coca-cola.com'], ['Pepsi','pepsico.com'],
+    ['Nike','nike.com'], ['Adidas','adidas.com'], ['McDonald\'s','mcdonalds.com'], ['Starbucks','starbucks.com']
+  ],
+  medium: [
+    ['Toyota','toyota.com'], ['BMW','bmw.com'], ['Mercedes-Benz','mercedes-benz.com'], ['Tesla','tesla.com'],
+    ['Visa','visa.com'], ['Mastercard','mastercard.com'], ['PayPal','paypal.com'], ['Stripe','stripe.com'],
+    ['Airbnb','airbnb.com'], ['Uber','uber.com'], ['Booking.com','booking.com'], ['Expedia','expedia.com'],
+    ['TikTok','tiktok.com'], ['Snapchat','snapchat.com'], ['Pinterest','pinterest.com'], ['Reddit','reddit.com'],
+    ['GitHub','github.com'], ['Discord','discord.com'], ['Twitch','twitch.tv'], ['Nintendo','nintendo.com']
+  ],
+  hard: [
+    ['PlayStation','playstation.com'], ['Xbox','xbox.com'], ['Nvidia','nvidia.com'], ['AMD','amd.com'],
+    ['Intel','intel.com'], ['Dell','dell.com'], ['HP','hp.com'], ['Lenovo','lenovo.com'],
+    ['Shell','shell.com'], ['BP','bp.com'], ['IKEA','ikea.com'], ['H&M','hm.com'],
+    ['Zara','zara.com'], ['Unilever','unilever.com'], ['Nestlé','nestle.com'], ['Heineken','heineken.com'],
+    ['Louis Vuitton','louisvuitton.com'], ['Gucci','gucci.com'], ['Rolex','rolex.com'], ['Lego','lego.com']
+  ]
+};
+
+/* -------------- GAME STATE -------------- */
+const $=s=>document.querySelector(s);
+const ui={
+  mode:$('#mode'), qCount:$('#qCount'), timerSel:$('#timerSel'), best:$('#best'), start:$('#start'),
+  game:$('#game'), end:$('#end'), logo:$('#logo'), opts:$('#opts'),
+  idx:$('#idx'), total:$('#total'), score:$('#score'), bar:$('#bar'), fb:$('#fb'),
+  skip:$('#skip'), next:$('#next'),
+  finalScore:$('#finalScore'), finalBest:$('#finalBest'), acc:$('#acc'),
+  again:$('#again')
+};
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function bestKey(){ return 'logo_quiz_best_'+ui.mode.value; }
+const loadBest=()=> +localStorage.getItem(bestKey()) || null;
+const saveBest=x=> localStorage.setItem(bestKey(), x);
+function setBest(){ const b=loadBest(); ui.best.textContent='Best: '+(b?b:'—');}
+
+let pool=[], session=[], idx=0, score=0, correct=0, timePerQ=12, ticking=null;
+
+ui.start.onclick=()=>{
+  const mode=ui.mode.value, total=+ui.qCount.value;
+  timePerQ=+ui.timerSel.value;
+  pool = BANK[mode].slice();
+  session = shuffle(pool.slice()).slice(0,total);
+  idx=0; score=0; correct=0;
+  ui.total.textContent=total; ui.score.textContent=score; setBest();
+  ui.game.style.display='block'; ui.end.style.display='none';
+  renderQ(); fitScale();
+};
+
+function renderQ(){
+  clearTick(); ui.fb.textContent=''; ui.fb.className='feedback'; ui.next.disabled=true;
+  const [name,domain]=session[idx];
+  ui.idx.textContent=idx+1;
+
+  // load real logo via Clearbit (fast PNG/SVG)
+  const url = `https://logo.clearbit.com/${domain}?size=256`;
+  ui.logo.src = url;
+  ui.logo.alt = name + ' logo';
+  ui.logo.onerror = ()=>{ ui.logo.alt = name; }; // fallback text if any logo not available
+
+  // build options (1 correct + 3 random wrong)
+  const wrongs = shuffle(pool.filter(x=>x[0]!==name)).slice(0,3).map(x=>x[0]);
+  const choices = shuffle([name, ...wrongs]).slice(0,4);
+
+  ui.opts.innerHTML='';
+  choices.forEach((c,i)=>{
+    const b=document.createElement('button');
+    b.className='opt kb'; b.dataset.kb=i+1; b.innerHTML='<b>'+c+'</b>';
+    b.onclick=()=> choose(c,b,name);
+    ui.opts.appendChild(b);
+  });
+
+  startTimer(); fitScale();
+}
+
+function startTimer(){
+  ui.bar.style.width='100%';
+  const start=Date.now();
+  function frame(){
+    const remain=Math.max(0, timePerQ - (Date.now()-start)/1000);
+    ui.bar.style.width=(remain/timePerQ*100)+'%';
+    if(remain<=0) timeUp(); else ticking=requestAnimationFrame(frame);
+  }
+  ticking=requestAnimationFrame(frame);
+}
+function clearTick(){ if(ticking){ cancelAnimationFrame(ticking); ticking=null; } }
+function lock(){ [...ui.opts.children].forEach(b=> b.disabled=true); }
+
+function timeUp(){
+  clearTick(); lock();
+  const [name] = session[idx];
+  ui.fb.textContent='⏳ Time up! Correct: '+name;
+  ui.fb.className='feedback bad';
+  ui.next.disabled=false; fitScale();
+}
+
+function choose(val,btn,ans){
+  clearTick(); lock();
+  if(val===ans){
+    btn.classList.add('correct');
+    ui.fb.textContent='✅ Correct!';
+    ui.fb.className='feedback good';
+    score+=10; correct++; ui.score.textContent=score;
+  }else{
+    btn.classList.add('wrong');
+    [...ui.opts.children].forEach(b=>{ if(b.textContent.trim()===ans) b.classList.add('correct'); });
+    ui.fb.textContent='❌ Wrong — Correct: '+ans;
+    ui.fb.className='feedback bad';
+  }
+  ui.next.disabled=false; fitScale();
+}
+
+ui.next.onclick=()=>{ idx++; if(idx>=session.length) endGame(); else renderQ(); };
+ui.skip.onclick=()=>{ clearTick(); lock(); const [name]=session[idx];
+  ui.fb.textContent='↷ Skipped — Correct: '+name; ui.fb.className='feedback bad'; ui.next.disabled=false; fitScale(); };
+
+window.addEventListener('keydown',e=>{
+  const k=e.key; if(ui.game.style.display==='none') return;
+  if(k>='1'&&k<='4'){ const i=+k-1; const b=ui.opts.children[i]; if(b&&!b.disabled) b.click(); }
+  if((k==='n'||k==='N') && !ui.next.disabled) ui.next.click();
+});
+
+function endGame(){
+  ui.game.style.display='none'; ui.end.style.display='block';
+  ui.finalScore.textContent=score;
+  const acc=Math.round(correct/session.length*100); ui.acc.textContent=acc+'%';
+  const prev=loadBest(); if(!prev || score>prev) saveBest(score);
+  ui.finalBest.textContent=loadBest();
+  fitScale();
+}
+ui.again.onclick=()=>{ ui.end.style.display='none'; ui.start.click(); };
+</script>
+</body>
+</html>
