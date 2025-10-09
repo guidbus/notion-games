@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Free Time Fix — Mind Discipline</title>
+<style>
+:root {
+  --bg: #191919;
+  --ink: #eaf2f7;
+  --muted: #9fb0c2;
+  --accent: #00ffa6;
+  --spin-size: 260px;
+}
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Inter", system-ui, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.app {
+  width: min(90vw, 700px);
+  text-align: center;
+}
+h1 {
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+.subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 20px;
+}
+.wheel {
+  width: var(--spin-size);
+  height: var(--spin-size);
+  border-radius: 50%;
+  border: 6px solid #252525;
+  background: conic-gradient(#00ffa6, #7cffc1, #00aaff, #ff8ab0, #ffd36e, #00ffa6);
+  margin: 0 auto 20px;
+  transition: transform 2s ease-out;
+}
+.task-box {
+  display: none;
+  background: #10161c;
+  border: 1px solid #26303a;
+  border-radius: 14px;
+  padding: 16px;
+  font-size: 16px;
+  color: #cfe6dd;
+  width: min(90%, 400px);
+  margin: 20px auto;
+  animation: fadeIn 0.8s ease forwards;
+}
+@keyframes fadeIn { from {opacity: 0; transform: translateY(10px);} to {opacity: 1; transform: none;} }
+
+button {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 22px;
+  margin: 6px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.spin-btn {
+  background: linear-gradient(90deg, #00ffa6, #00aaff);
+  color: #041910;
+}
+.skip-btn {
+  background: #20252b;
+  color: #cfe6dd;
+}
+.restart-btn {
+  background: #161a1f;
+  border: 1px solid #26303a;
+  color: #a0b0c0;
+  font-size: 13px;
+}
+.spin-btn:disabled, .skip-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.counter {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 10px;
+}
+.message {
+  font-size: 13px;
+  color: #ff8ab0;
+  margin-top: 8px;
+  display: none;
+}
+.locked {
+  margin-top: 16px;
+  font-size: 16px;
+  color: #00ffa6;
+  font-weight: 700;
+  display: none;
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Free Time Fix 🧠</h1>
+  <div class="subtitle">Don't waste your time — spin for something productive</div>
+
+  <div id="wheel" class="wheel"></div>
+  <div id="taskBox" class="task-box"></div>
+
+  <div>
+    <button id="spinBtn" class="spin-btn">SPIN</button>
+    <button id="skipBtn" class="skip-btn">SKIP</button>
+    <button id="restartBtn" class="restart-btn">Restart</button>
+  </div>
+
+  <div id="counter" class="counter">Skips left: 3</div>
+  <div id="message" class="message">Restarting means you lacked patience. Stay disciplined next time.</div>
+  <div id="locked" class="locked">Session locked — come back tomorrow ✨</div>
+</div>
+
+<script>
+// ===== CONFIG =====
+const tasks = [
+  "Drink a glass of water 💧",
+  "Do 10 pushups 💪",
+  "Read 2 pages of a book 📚",
+  "Clean your desk or table ✨",
+  "Talk with your parents for 5 minutes 👨‍👩‍👧‍👦",
+  "Stretch your back and shoulders 🧍‍♂️",
+  "Write one positive thought ✍️",
+  "Listen to 1 relaxing song 🎶",
+  "Delete 5 useless photos 🗑️",
+  "Walk around your house for 5 minutes 🚶‍♂️",
+  "Smile at yourself in the mirror 😊",
+  "Meditate for 3 minutes 🧘‍♂️",
+  "Wash your face and refresh 💦",
+  "Learn 3 new English words 🗣️",
+  "Write one gratitude line 🙏",
+  "Organize your desktop or phone 🖥️",
+  "Do 20 jumping jacks 🤸‍♀️",
+  "Say thank you to someone 🙌",
+  "Read one motivational quote 📖",
+  "Write a small goal for today 🎯",
+  "Clean your mirror 🪞",
+  "Type one English paragraph 📝",
+  "Do 10 slow inhales and exhales 🌬️",
+  "Fold your blanket 🛏️",
+  "Compliment yourself once 🌸",
+  "Drink another sip of water 💧",
+  "Stretch your neck slowly 🙆‍♂️",
+  "Message an old friend kindly 💬",
+  "Write a new idea 💡",
+  "Watch one short educational video 🎥",
+  "Tidy one shelf or drawer 🗂️",
+  "Do a 1-minute self massage 💆‍♂️",
+  "Plan one thing for tomorrow 🗓️",
+  "Delete one distracting app 📱",
+  "Fix your posture for 5 minutes 🪑",
+  "Wipe your phone screen clean 📱",
+  "Do 10 squats 🏋️‍♀️",
+  "Think one good memory 🥰",
+  "Research one topic you like 🔍",
+  "Practice typing for 3 minutes ⌨️",
+  "Take 5 deep breaths 🌿",
+  "Write 3 lines about your dream 💤",
+  "Wash your hands properly 🫧",
+  "Organize one folder on PC 🗂️",
+  "Dance for 2 minutes 🕺",
+  "Say 'I can do this' ✊",
+  "Look at something green for 60s 🌳",
+  "Stand up and stretch legs 👣",
+  "Forgive someone in your mind 💗",
+  "Close eyes for 30 seconds and relax 😌"
+];
+let skipsLeft = 3;
+let spun = false;
+
+// ===== ELEMENTS =====
+const wheel = document.getElementById("wheel");
+const taskBox = document.getElementById("taskBox");
+const spinBtn = document.getElementById("spinBtn");
+const skipBtn = document.getElementById("skipBtn");
+const restartBtn = document.getElementById("restartBtn");
+const counter = document.getElementById("counter");
+const message = document.getElementById("message");
+const locked = document.getElementById("locked");
+
+// ===== SPIN FUNCTION =====
+spinBtn.onclick = () => {
+  if (spun) return;
+  spun = true;
+  wheel.style.transform = `rotate(${Math.random() * 1080 + 720}deg)`;
+  setTimeout(() => {
+    showTask();
+    spinBtn.disabled = true;
+  }, 1800);
+};
+
+// ===== SHOW RANDOM TASK =====
+function showTask() {
+  const task = tasks[Math.floor(Math.random() * tasks.length)];
+  taskBox.innerText = task;
+  taskBox.style.display = "block";
+}
+
+// ===== SKIP =====
+skipBtn.onclick = () => {
+  if (skipsLeft <= 0) return;
+  skipsLeft--;
+  counter.innerText = `Skips left: ${skipsLeft}`;
+  wheel.style.transform = `rotate(${Math.random() * 1080 + 720}deg)`;
+  setTimeout(() => showTask(), 1500);
+  if (skipsLeft === 0) {
+    skipBtn.disabled = true;
+    spinBtn.disabled = true;
+    setTimeout(() => locked.style.display = "block", 2000);
+  }
+};
+
+// ===== RESTART =====
+restartBtn.onclick = () => {
+  message.style.display = "block";
+  taskBox.style.display = "none";
+  locked.style.display = "none";
+  spinBtn.disabled = false;
+  skipBtn.disabled = false;
+  skipsLeft = 3;
+  spun = false;
+  counter.innerText = `Skips left: 3`;
+};
+</script>
+</body>
+</html>
