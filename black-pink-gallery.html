@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Manual Gallery (No JS)</title>
+<style>
+  :root{
+    --bg:#191919;      /* Notion dark */
+    --arrow:#ffffff;   /* arrow color */
+    --w:240px;         /* width  (shrink/grow here)  */
+    --h:400px;         /* height (shrink/grow here)  */
+  }
+  body{
+    margin:0;
+    background:var(--bg);
+    height:100vh;
+    display:flex;align-items:center;justify-content:center;
+  }
+
+  .slider{
+    width:var(--w);
+    height:var(--h);
+    overflow-x:auto;                 /* native scroll */
+    scroll-snap-type:x mandatory;    /* snap to slides */
+    -webkit-overflow-scrolling:touch;
+    border-radius:14px;
+    position:relative;
+    background:var(--bg);
+  }
+
+  /* hide scrollbars */
+  .slider::-webkit-scrollbar{display:none;}
+  .slider{scrollbar-width:none;}
+
+  .track{
+    display:flex;
+    width:100%;
+    height:100%;
+  }
+
+  .slide{
+    position:relative;
+    flex:0 0 100%;
+    height:100%;
+    scroll-snap-align:center;
+  }
+  .slide img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+
+  /* pure-CSS arrows: anchor links to slide IDs */
+  .arrow{
+    position:absolute;
+    top:50%;
+    transform:translateY(-50%);
+    font:700 28px/1 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    color:var(--arrow);
+    text-decoration:none;
+    padding:6px 10px;
+    user-select:none;
+    opacity:.95;
+  }
+  .left{ left:8px; }
+  .right{ right:8px; }
+</style>
+</head>
+<body>
+
+  <div class="slider">
+    <div class="track">
+      <!-- Slide 1 -->
+      <section class="slide" id="s1">
+        <img src="https://i.postimg.cc/d18PXmvB/8.png" alt="">
+        <a class="arrow left"  href="#s4">&#10094;</a>
+        <a class="arrow right" href="#s2">&#10095;</a>
+      </section>
+
+      <!-- Slide 2 -->
+      <section class="slide" id="s2">
+        <img src="https://i.postimg.cc/CKqWBHRW/9.png" alt="">
+        <a class="arrow left"  href="#s1">&#10094;</a>
+        <a class="arrow right" href="#s3">&#10095;</a>
+      </section>
+
+      <!-- Slide 3 -->
+      <section class="slide" id="s3">
+        <img src="https://i.postimg.cc/W3mCSN6C/10.png" alt="">
+        <a class="arrow left"  href="#s2">&#10094;</a>
+        <a class="arrow right" href="#s4">&#10095;</a>
+      </section>
+
+      <!-- Slide 4 -->
+      <section class="slide" id="s4">
+        <img src="https://i.postimg.cc/GhmVJ1BP/11.png" alt="">
+        <a class="arrow left"  href="#s3">&#10094;</a>
+        <a class="arrow right" href="#s1">&#10095;</a>
+      </section>
+    </div>
+  </div>
+
+</body>
+</html>
