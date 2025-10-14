@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">  
+<head>  
+<meta charset="utf-8" />  
+<meta name="viewport" content="width=device-width,initial-scale=1" />  
+<title>Timer</title>  
+
+<!-- Fonts -->  
+<link href="https://fonts.cdnfonts.com/css/lovelo" rel="stylesheet">  
+<link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">  
+<link href="https://fonts.cdnfonts.com/css/bobby-jones-soft" rel="stylesheet">  
+
+<style>  
+  body {  
+    background:#191919;  /* Notion black */  
+    margin:0;  
+    height:100vh;  
+    display:flex;  
+    align-items:center;  
+    justify-content:center;  
+    font-family: 'Lovelo', sans-serif;  
+    color:#fff;  
+    text-transform:uppercase;  
+    font-weight:700;  
+  }  
+
+  .container { text-align:center; }  
+
+  .display {  
+    font-family:'Anton', sans-serif;  
+    font-size:64px;  
+    font-weight:700;  
+    margin-bottom:20px;  
+    letter-spacing:8px;  
+  }  
+
+  .time-inputs {  
+    display:flex;  
+    justify-content:center;  
+    gap:25px;  
+    margin-bottom:20px;  
+  }  
+
+  .time-group {  
+    display:flex;  
+    flex-direction:column;  
+    align-items:center;  
+  }  
+
+  .time-group input {  
+    width:55px;  
+    height:38px;  
+    text-align:center;  
+    font-size:16px;  
+    font-weight:700;  
+    background:#fff;  
+    border:1px solid #ccc;  
+    border-radius:6px;  
+    color:#000;  
+    outline:none;  
+  }  
+
+  .time-group label {  
+    font-family: Arial, sans-serif;  
+    font-size:11px;  
+    text-transform:uppercase;  
+    color:#fff;  
+    font-weight:normal;  
+    margin-top:5px;  
+    text-align:center;  
+  }  
+
+  /* Spinner fix */  
+  input[type=number]::-webkit-inner-spin-button,  
+  input[type=number]::-webkit-outer-spin-button {  
+    -webkit-appearance: inner-spin-button;  
+    opacity: 1;  
+    background: transparent !important;  
+    border: none !important;  
+    filter: none !important;  
+  }  
+  input[type=number] {  
+    -moz-appearance: textfield;  
+  }  
+
+  .btns {  
+    display:flex;  
+    justify-content:center;  
+    gap:12px;  
+  }  
+  button {  
+    padding:10px 20px;  
+    border:none;  
+    border-radius:6px;  
+    font-weight:700;  
+    text-transform:uppercase;  
+    cursor:pointer;  
+    font-family: 'Bobby Jones Soft', sans-serif;  
+    letter-spacing:2px;  
+    transition: all 0.3s ease;  /* smooth hover */  
+  }  
+  #startBtn { background:#b35487; color:#fff; }  
+  #startBtn:hover { background:#d46aa1; box-shadow:0 0 12px #b35487; }  
+
+  #pauseBtn, #resetBtn { background:#fff; color:#b35488; }  
+  #pauseBtn:hover, #resetBtn:hover { background:#f2f2f2; box-shadow:0 0 10px #b35487; }  
+</style>  
+</head>  
+
+<body>  
+  <div class="container">  
+    <div class="display" id="display">00:00:00</div>  
+
+    <div class="time-inputs">  
+      <div class="time-group">  
+        <input id="hours" type="number" min="0" value="0">  
+        <label for="hours">Hours</label>  
+      </div>  
+      <div class="time-group">  
+        <input id="minutes" type="number" min="0" max="59" value="0">  
+        <label for="minutes">Minutes</label>  
+      </div>  
+      <div class="time-group">  
+        <input id="seconds" type="number" min="0" max="59" value="0">  
+        <label for="seconds">Seconds</label>  
+      </div>  
+    </div>  
+
+    <div class="btns">  
+      <button id="startBtn">Start</button>  
+      <button id="pauseBtn">Pause</button>  
+      <button id="resetBtn">Reset</button>  
+    </div>  
+  </div>  
+
+<script>  
+  const display = document.getElementById('display');  
+  const hInput = document.getElementById('hours');  
+  const mInput = document.getElementById('minutes');  
+  const sInput = document.getElementById('seconds');  
+  const startBtn = document.getElementById('startBtn');  
+  const pauseBtn = document.getElementById('pauseBtn');  
+  const resetBtn = document.getElementById('resetBtn');  
+
+  let totalSeconds = 0;  
+  let timer = null;  
+  let running = false;
+function formatTime(sec){  
+    const hrs = Math.floor(sec/3600);  
+    const mins = Math.floor((sec%3600)/60);  
+    const secs = sec%60;  
+    return [hrs,mins,secs].map(v => String(v).padStart(2,'0')).join(':');  
+  }  
+
+  function updateDisplay(){  
+    display.textContent = formatTime(totalSeconds);  
+  }  
+
+  function computeFromInputs(){  
+    const h = parseInt(hInput.value)||0;  
+    const m = parseInt(mInput.value)||0;  
+    const s = parseInt(sInput.value)||0;  
+    return h*3600 + m*60 + s;  
+  }  
+
+  startBtn.addEventListener('click', () => {  
+    if(!running){  
+      totalSeconds = computeFromInputs();  
+      if(totalSeconds <= 0) return;  
+      running = true;  
+      timer = setInterval(() => {  
+        if(totalSeconds > 0){  
+          totalSeconds--;  
+          updateDisplay();  
+        } else {  
+          clearInterval(timer);  
+          running = false;  
+          alert('Time up!');  
+        }  
+      },1000);  
+      updateDisplay();  
+    }  
+  });  
+
+  pauseBtn.addEventListener('click', () => {  
+    if(running){  
+      clearInterval(timer);  
+      running = false;  
+      pauseBtn.textContent = 'Resume';  
+    } else {  
+      if(totalSeconds > 0){  
+        running = true;  
+        pauseBtn.textContent = 'Pause';  
+        timer = setInterval(() => {  
+          if(totalSeconds > 0){  
+            totalSeconds--;  
+            updateDisplay();  
+          } else {  
+            clearInterval(timer);  
+            running = false;  
+            alert('Time up!');  
+          }  
+        },1000);  
+      }  
+    }  
+  });  
+
+  resetBtn.addEventListener('click', () => {  
+    clearInterval(timer);  
+    running = false;  
+    pauseBtn.textContent = 'Pause';  
+    totalSeconds = 0;  
+    hInput.value = 0;  
+    mInput.value = 0;  
+    sInput.value = 0;  
+    updateDisplay();  
+  });  
+
+  totalSeconds = computeFromInputs();  
+  updateDisplay();  
+</script>  
+</body>  
+</html>
