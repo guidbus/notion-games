@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Night Runner Game</title>
+  <style>
+    body {
+      margin: 0;
+      background: #191919;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    canvas {
+      background: #191919;
+      display: block;
+      /* Side fade with #191919 (not pure black) */
+      box-shadow: inset 50px 0 50px -20px #191919,
+                  inset -50px 0 50px -20px #191919;
+    }
+    #startBtn, #retryBtn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 12px 24px;
+      font-size: 20px;
+      font-weight: bold;
+      background: #b35488;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: none;
+    }
+    #startBtn { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="900" height="450"></canvas>
+  <button id="startBtn">Start Game</button>
+  <button id="retryBtn">Retry</button>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const startBtn = document.getElementById("startBtn");
+    const retryBtn = document.getElementById("retryBtn");
+
+    const roadHeight = 100;
+    const roadTop = canvas.height - roadHeight;
+    const trackY = roadTop + 50;
+
+    // Player
+    let player = {
+      x: 120, y: trackY - 100, w: 70, h: 100,
+      dy: 0, gravity: 0.7, jumpPower: -18,
+      onGround: true, jumping: false
+    };
+
+    const runImg = new Image();
+    runImg.src = "https://i.postimg.cc/k4nVLj7V/ddb58d83-225b-472e-b9ee-f99a3321932c-removalai-preview.png";
+    const jumpImg = new Image();
+    jumpImg.src = "https://i.postimg.cc/vB31yWm2/07cd09ed-a3a6-4444-9da8-24fa3fd7278f-removalai-preview.png";
+
+    // Cars
+    let cars = [];
+    const carImages = [
+      "https://i.postimg.cc/TwYBHhNv/093db371-b754-410e-8b9e-665a99a359e4-removalai-preview.png",
+      "https://i.postimg.cc/XJHtM3t5/53aed839-0d04-4885-ae5e-76548d3bf0ac-removalai-preview.png",
+      "https://i.postimg.cc/mZnK8LQz/a4be857e-c0c2-4875-8517-a61657e07656-removalai-preview.png",
+      "https://i.postimg.cc/L6ZwWcDJ/688c4af7-9e86-40de-80da-42064f405e59-removalai-preview.png"
+    ];
+    const loadedCars = [];
+    carImages.forEach(src => {
+      let img = new Image();
+      img.src = src;
+      loadedCars.push(img);
+    });
+
+    let roadOffset = 0;
+    let backgroundOffset = 0;
+    let gameOver = false;
+    let gameStarted = false;
+    let score = 0;
+    let lastCarSpawn = 0;
+
+    // Base speed
+    let carSpeed = 6;
+    let buildingSpeed = 0.2;
+
+    // Background
+    function drawBackground() {
+      ctx.fillStyle = "#191919";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.beginPath();
+      ctx.arc(750, 80, 25, 0, Math.PI * 2);
+      ctx.fillStyle = "#f5f3ce";
+      ctx.fill();
+
+      for (let i = 0; i < 12; i++) {
+        let bw = 120;
+        let bh = Math.random() * 160 + 120;
+        let bx = i * 150 - (backgroundOffset % 150);
+        let by = canvas.height - roadHeight - bh;
+
+        ctx.fillStyle = "#111";
+        ctx.fillRect(bx, by, bw, bh);
+
+        for (let wx = bx + 10; wx < bx + bw - 10; wx += 20) {
+          for (let wy = by + 10; wy < by + bh - 20; wy += 25) {
+            if (Math.random() > 0.7) {
+              ctx.fillStyle = "#c9a85c";
+              ctx.fillRect(wx, wy, 10, 15);
+            }
+          }
+        }
+      }
+    }
+
+    // Road
+    function drawRoad() {
+      ctx.fillStyle = "#222";
+      ctx.fillRect(0, roadTop, canvas.width, roadHeight);
+
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 4;
+      for (let i = 0; i < 20; i++) {
+        let x = i * 60 - (roadOffset % 60);
+        ctx.beginPath();
+        ctx.moveTo(x, roadTop + 50);
+        ctx.lineTo(x + 30, roadTop + 50);
+        ctx.stroke();
+      }
+    }
+// Player
+    function drawPlayer() {
+      if (player.jumping) {
+        ctx.drawImage(jumpImg, player.x, player.y, player.w, player.h);
+      } else {
+        ctx.drawImage(runImg, player.x, player.y, player.w, player.h);
+      }
+    }
+
+    // Cars
+    function drawCars() {
+      cars.forEach(car => {
+        let img = loadedCars[car.type];
+        ctx.drawImage(img, car.x, car.y, car.w, car.h);
+      });
+    }
+
+    // Update
+    function update() {
+      if (!gameStarted || gameOver) return;
+
+      backgroundOffset += buildingSpeed;
+      roadOffset += 5;
+
+      // Player physics
+      player.dy += player.gravity;
+      player.y += player.dy;
+      if (player.y + player.h >= trackY) {
+        player.y = trackY - player.h;
+        player.dy = 0;
+        player.onGround = true;
+        player.jumping = false;
+      }
+
+      // Car movement
+      cars.forEach(car => { car.x -= carSpeed; });
+      cars = cars.filter(car => car.x + car.w > 0);
+
+      // Spawn cars
+      if (score - lastCarSpawn > 120) {
+        let type = Math.floor(Math.random() * loadedCars.length);
+        cars.push({ x: canvas.width, y: trackY - 55, w: 110, h: 70, type });
+        lastCarSpawn = score;
+      }
+
+      // Collision
+      cars.forEach(car => {
+        if (player.x < car.x + car.w &&
+            player.x + player.w > car.x &&
+            player.y < car.y + car.h &&
+            player.y + player.h > car.y) {
+          gameOver = true;
+          retryBtn.style.display = "block";
+        }
+      });
+
+      score++;
+
+      // Dino-game style speed increase
+      if (score % 500 === 0) {
+        carSpeed += 0.5;
+        buildingSpeed += 0.02;
+      }
+    }
+
+    // Draw
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBackground();
+      drawRoad();
+      drawPlayer();
+      drawCars();
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "20px Arial";
+      ctx.fillText("Score: " + score, 20, 30);
+    }
+
+    // Loop
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+    gameLoop();
+
+    // Controls (keyboard + mouse)
+    function jumpAction() {
+      if (player.onGround && !gameOver && gameStarted) {
+        player.dy = player.jumpPower;
+        player.onGround = false;
+        player.jumping = true;
+      }
+    }
+
+    document.addEventListener("keydown", e => {
+      if (e.code === "Space" || e.code === "ArrowUp") {
+        jumpAction();
+      }
+    });
+
+    document.addEventListener("click", () => {
+      jumpAction();
+    });
+
+    // Start button
+    startBtn.addEventListener("click", () => {
+      gameStarted = true;
+      score = 0;
+      cars = [];
+      carSpeed = 6;
+      buildingSpeed = 0.2;
+      player.y = trackY - player.h;
+      startBtn.style.display = "none";
+    });
+
+    // Retry button
+    retryBtn.addEventListener("click", () => {
+      gameOver = false;
+      score = 0;
+      cars = [];
+      carSpeed = 6;
+      buildingSpeed = 0.2;
+      player.y = trackY - player.h;
+      player.dy = 0;
+      retryBtn.style.display = "none";
+      gameStarted = true;
+    });
+  </script>
+</body>
+</html>
