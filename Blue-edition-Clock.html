@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GUIDBUS Premium Clock</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+  --bg:#191919;
+  --blue1:#5a9be0;
+  --blue2:#387dc9;
+  --blue3:#2c639f;
+  --date-blue:#387dc9;
+  --shadow:rgba(0,0,0,.42);
+  --split:rgba(0,0,0,.22);
+}
+    *{box-sizing:border-box;margin:0;padding:0;}
+
+    html,body{
+      width:100%;
+      height:100%;
+      background:var(--bg);
+      overflow:hidden;
+    }
+
+    body{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-family:"Inter",sans-serif;
+    }
+
+    .wrap{
+      width:100%;
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:var(--bg);
+      padding:12px;
+    }
+
+    .clock-container{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:14px;
+    }
+
+    .clock-row{
+      display:flex;
+      align-items:center;
+      gap:14px;
+    }
+
+    .group{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .separator{
+      font-family:"Anton",sans-serif;
+      font-size:3.8rem;
+      line-height:1;
+      color:var(--blue2);
+      transform:translateY(-2px);
+      user-select:none;
+      text-shadow:0 4px 10px rgba(0,0,0,.15);
+    }
+
+    .time-card{
+      position:relative;
+      width:116px;
+      height:116px;
+      border-radius:14px;
+      overflow:hidden;
+      background:linear-gradient(180deg,var(--blue1) 0%,var(--blue2) 60%,var(--blue3) 100%);
+      box-shadow:
+        0 10px 24px var(--shadow),
+        inset 0 1px 0 rgba(255,255,255,.08);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .time-card::before{
+      content:"";
+      position:absolute;
+      top:50%;
+      left:0;
+      width:100%;
+      height:2px;
+      background:var(--split);
+      transform:translateY(-50%);
+      z-index:2;
+      box-shadow:0 1px 0 rgba(255,255,255,.06);
+    }
+
+    .time-card .digit{
+      position:relative;
+      z-index:3;
+      font-family:"Anton",sans-serif;
+      font-size:5.3rem;
+      line-height:1;
+      color:#fff;
+      letter-spacing:1px;
+      user-select:none;
+      text-shadow:0 2px 0 rgba(0,0,0,.06);
+      transform:translateY(-2px);
+    }
+
+    .ampm{
+      min-width:98px;
+      height:62px;
+      padding:0 18px;
+      border-radius:10px;
+      background:linear-gradient(180deg,var(--blue1) 0%,var(--blue2) 60%,var(--blue3) 100%);
+      box-shadow:
+        0 8px 18px var(--shadow),
+        inset 0 1px 0 rgba(255,255,255,.08);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      overflow:hidden;
+      transform:translateY(18px);
+    }
+
+    .ampm::before{
+      content:"";
+      position:absolute;
+      top:50%;
+      left:0;
+      width:100%;
+      height:2px;
+      background:var(--split);
+      transform:translateY(-50%);
+    }
+
+    .ampm span{
+      position:relative;
+      z-index:2;
+      font-family:"Anton",sans-serif;
+      font-size:2.2rem;
+      color:#fff;
+      letter-spacing:1px;
+    }
+
+    .date{
+      font-family:"Inter",sans-serif;
+      font-size:2rem;
+      font-weight:800;
+      line-height:1.1;
+      color:#387dc9;
+      text-align:center;
+      letter-spacing:-.5px;
+      user-select:none;
+      text-shadow:0 2px 8px rgba(0,0,0,.12);
+    }
+
+    /* subtle premium pulse only when value changes */
+    .pulse{
+      animation:pulse .22s ease;
+    }
+
+    @keyframes pulse{
+      0%{transform:scale(1);}
+      50%{transform:scale(.97);}
+      100%{transform:scale(1);}
+    }
+
+    @media (max-width:800px){
+      .clock-row{gap:10px;}
+      .group{gap:8px;}
+      .time-card{width:84px;height:84px;}
+      .time-card .digit{font-size:3.9rem;}
+      .separator{font-size:2.7rem;}
+      .ampm{min-width:72px;height:48px;transform:translateY(12px);}
+      .ampm span{font-size:1.6rem;}
+      .date{font-size:1.35rem;}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="clock-container">
+      <div class="clock-row">
+        <div class="group">
+          <div class="time-card" id="hoursCard"><div class="digit" id="hours">08</div></div>
+          <div class="separator">:</div>
+        </div>
+
+        <div class="group">
+          <div class="time-card" id="minutesCard"><div class="digit" id="minutes">45</div></div>
+          <div class="separator">:</div>
+        </div>
+
+        <div class="group">
+          <div class="time-card" id="secondsCard"><div class="digit" id="seconds">08</div></div>
+        </div>
+
+        <div class="ampm"><span id="ampm">PM</span></div>
+      </div>
+
+      <div class="date" id="dateText">Monday | April 13, 2026</div>
+    </div>
+  </div>
+
+  <script>
+    let prevH = "";
+    let prevM = "";
+    let prevS = "";
+
+    function pulseCard(id){
+      const el = document.getElementById(id);
+      el.classList.remove("pulse");
+      void el.offsetWidth;
+      el.classList.add("pulse");
+    }
+
+    function updateClock(){
+      const now = new Date();
+
+      let hours = now.getHours();
+      const minutes = now.getMinutes();
+      const seconds = now.getSeconds();
+
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+
+      const h = String(hours).padStart(2,"0");
+      const m = String(minutes).padStart(2,"0");
+      const s = String(seconds).padStart(2,"0");
+
+      if(h !== prevH){
+        document.getElementById("hours").textContent = h;
+        pulseCard("hoursCard");
+        prevH = h;
+      }
+
+      if(m !== prevM){
+        document.getElementById("minutes").textContent = m;
+        pulseCard("minutesCard");
+        prevM = m;
+      }
+
+      if(s !== prevS){
+        document.getElementById("seconds").textContent = s;
+        pulseCard("secondsCard");
+        prevS = s;
+      }
+
+      document.getElementById("ampm").textContent = ampm;
+
+      const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+      const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+      document.getElementById("dateText").textContent =
+        `${days[now.getDay()]} | ${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
+  </script>
+</body>
+</html>
